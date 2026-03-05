@@ -281,9 +281,10 @@ setClosings(unique);
   }, [tenantId, branch?.id, day]);
 
   const signIn = async () => {
+    const redirectTo = `${window.location.origin}/reporte`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:3000/reporte" },
+      options: { redirectTo },
     });
   };
 

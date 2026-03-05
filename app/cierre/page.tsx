@@ -265,9 +265,10 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
   }, [businessDate]);
 
   const signIn = async () => {
+    const redirectTo = `${window.location.origin}/cierre`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:3000/cierre" },
+      options: { redirectTo },
     });
   };
 

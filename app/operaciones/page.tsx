@@ -316,9 +316,10 @@ export default function OperacionesPage() {
   }, [businessDate]);
 
   const signIn = async () => {
+    const redirectTo = `${window.location.origin}/operaciones`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:3000/operaciones" },
+      options: { redirectTo },
     });
   };
 

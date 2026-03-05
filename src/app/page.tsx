@@ -15,9 +15,10 @@ export default function Home() {
   }, []);
 
   const signIn = async () => {
+    const redirectTo = window.location.origin;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:3000" },
+      options: { redirectTo },
     });
   };
 
