@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { AppPageHeader } from "@/app/components/app-page-header";
 
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
@@ -335,37 +336,9 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-        <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-1 text-2xl font-semibold">Cierre del día</h1>
-
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          <Link
-            href="/operaciones"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Operaciones
-          </Link>
-          <Link
-            href="/clients"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/cierre"
-            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
-          >
-            Cierre
-          </Link>
-          <Link
-            href="/reporte"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Reporte
-          </Link>
-        </div>
+    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl">
+        <AppPageHeader title="Cierre del día" activeTab="cierre" />
 
         <div className="mt-3 flex items-center justify-between gap-3 text-xs opacity-70">
           <span>Día operativo</span>
@@ -394,7 +367,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
               </div>
 
               {errMsg ? (
-                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
+                <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
                   {errMsg}
                 </div>
               ) : null}
@@ -504,7 +477,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                       {savingClose ? "Guardando..." : "Cerrar el día (guardar)"}
                     </button>
               {closingSaved ? (
-  <div className="mt-3 text-xs opacity-70">
+  <div role="status" aria-live="polite" className="mt-3 text-xs opacity-70">
     🔒 Día cerrado. Para corregir operaciones necesitás <b>Reabrir</b> (solo Supervisor/Admin).
   </div>
 ) : null}
@@ -519,8 +492,8 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                   </div>
 
                   <div className="mt-6 flex justify-between">
-                    <a className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Volver a Operaciones</a>
-                    <a className="text-sm underline opacity-80 hover:opacity-100" href="/reporte">Ir a Reporte →</a>
+                    <Link className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Volver a Operaciones</Link>
+                    <Link className="text-sm underline opacity-80 hover:opacity-100" href="/reporte">Ir a Reporte →</Link>
                   </div>
                 </>
               )}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { AppPageHeader } from "@/app/components/app-page-header";
 
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
@@ -54,11 +55,11 @@ function isFiniteNumber(x: unknown): x is number {
 
 function getGainARS(c: DailyClosingRow) {
   if (isFiniteNumber(c.ars_open) && isFiniteNumber(c.ars_close)) return c.ars_close - c.ars_open;
-  return Number(c.pnl_total_ars ?? 0);
+  return null;
 }
 function getGainUSD(c: DailyClosingRow) {
   if (isFiniteNumber(c.usd_open) && isFiniteNumber(c.usd_close)) return c.usd_close - c.usd_open;
-  return 0;
+  return null;
 }
 
 export default function ReportePage() {
@@ -76,22 +77,28 @@ export default function ReportePage() {
   const totals = useMemo(() => {
     let ars = 0;
     let usd = 0;
+    let arsComplete = true;
+    let usdComplete = true;
     let operativo = 0;
     let valuacion = 0;
     for (const c of closings) {
-      ars += getGainARS(c);
-      usd += getGainUSD(c);
+      const gainArs = getGainARS(c);
+      const gainUsd = getGainUSD(c);
+      if (isFiniteNumber(gainArs)) ars += gainArs;
+      else arsComplete = false;
+      if (isFiniteNumber(gainUsd)) usd += gainUsd;
+      else usdComplete = false;
       operativo += Number(c.pnl_operativo_ars ?? 0);
       valuacion += Number(c.pnl_valuacion_ars ?? 0);
     }
-    return { ars, usd, operativo, valuacion };
+    return { ars, usd, arsComplete, usdComplete, operativo, valuacion };
   }, [closings]);
 
   const chartSeries = useMemo(() => {
     const asc = [...closings].sort((a, b) => String(a.business_date).localeCompare(String(b.business_date)));
     return asc.map((c) => ({
       date: c.business_date,
-      ars: getGainARS(c),
+      ars: getGainARS(c) ?? 0,
     }));
   }, [closings]);
 
@@ -253,28 +260,9 @@ export default function ReportePage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-        <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-1 text-2xl font-semibold">Reporte</h1>
-
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          <Link href="/operaciones" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
-            Operaciones
-          </Link>
-          <Link href="/clients" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
-            Clientes
-          </Link>
-          <Link href="/cierre" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
-            Cierre
-          </Link>
-          <Link
-            href="/reporte"
-            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
-          >
-            Reporte
-          </Link>
-        </div>
+    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
+        <AppPageHeader title="Reporte" activeTab="reporte" />
 
         <div className="mt-3 text-xs opacity-70">Filtro preestablecido</div>
         <select
@@ -338,7 +326,7 @@ export default function ReportePage() {
               </div>
 
               {errMsg ? (
-                <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{errMsg}</div>
+                <div role="alert" aria-live="assertive" className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{errMsg}</div>
               ) : null}
 
               <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
@@ -346,11 +334,11 @@ export default function ReportePage() {
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-white/10 p-3">
                     <div className="text-xs opacity-70">Ganancia/pérdida ARS</div>
-                    <div className="mt-1 text-lg font-semibold">{fmtARS(totals.ars)}</div>
+                    <div className="mt-1 text-lg font-semibold">{totals.arsComplete ? fmtARS(totals.ars) : "N/D"}</div>
                   </div>
                   <div className="rounded-xl border border-white/10 p-3">
                     <div className="text-xs opacity-70">Ganancia/pérdida USD</div>
-                    <div className="mt-1 text-lg font-semibold">{fmtUSD(totals.usd)}</div>
+                    <div className="mt-1 text-lg font-semibold">{totals.usdComplete ? fmtUSD(totals.usd) : "N/D"}</div>
                   </div>
                 </div>
                 <div className="mt-2 text-xs opacity-70">
@@ -368,7 +356,16 @@ export default function ReportePage() {
                   </div>
                 ) : (
                   <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2">
-                    <svg viewBox="0 0 620 180" className="h-40 w-full">
+                    <svg
+                      viewBox="0 0 620 180"
+                      className="h-40 w-full"
+                      role="img"
+                      aria-labelledby="chart-title chart-desc"
+                    >
+                      <title id="chart-title">Ganancias diarias en ARS</title>
+                      <desc id="chart-desc">
+                        Evolución de ganancias por día en pesos para el rango seleccionado.
+                      </desc>
                       <line x1="14" y1={zeroLineY} x2="606" y2={zeroLineY} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
                       <polyline fill="none" stroke="rgb(16 185 129)" strokeWidth="2.5" points={chartPath} />
                     </svg>
@@ -393,10 +390,10 @@ export default function ReportePage() {
                         <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-medium">{fmtDateAR(c.business_date)}</div>
-                            <div className="text-sm font-semibold">{fmtARS(gainArs)}</div>
+                            <div className="text-sm font-semibold">{isFiniteNumber(gainArs) ? fmtARS(gainArs) : "N/D"}</div>
                           </div>
                           <div className="mt-1 text-xs opacity-70">
-                            USD: <b>{fmtUSD(gainUsd)}</b> • Operativo: <b>{fmtARS(Number(c.pnl_operativo_ars ?? 0))}</b> • Valuación:{" "}
+                            USD: <b>{isFiniteNumber(gainUsd) ? fmtUSD(gainUsd) : "N/D"}</b> • Operativo: <b>{fmtARS(Number(c.pnl_operativo_ars ?? 0))}</b> • Valuación:{" "}
                             <b>{fmtARS(Number(c.pnl_valuacion_ars ?? 0))}</b>
                           </div>
                         </div>
@@ -407,8 +404,8 @@ export default function ReportePage() {
               </div>
 
               <div className="mt-6 flex justify-between">
-                <a className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Operaciones</a>
-                <a className="text-sm underline opacity-80 hover:opacity-100" href="/cierre">Cierre →</a>
+                <Link className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Operaciones</Link>
+                <Link className="text-sm underline opacity-80 hover:opacity-100" href="/cierre">Cierre →</Link>
               </div>
 
               <button

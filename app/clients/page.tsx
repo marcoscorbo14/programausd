@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { AppPageHeader } from "@/app/components/app-page-header";
 
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 
@@ -266,37 +267,9 @@ export default function ClientsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-        <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
-
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          <Link
-            href="/operaciones"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Operaciones
-          </Link>
-          <Link
-            href="/clients"
-            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/cierre"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Cierre
-          </Link>
-          <Link
-            href="/reporte"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Reporte
-          </Link>
-        </div>
+    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
+        <AppPageHeader title="Clientes" activeTab="clients" />
 
         <div className="mt-3 text-xs opacity-70">
           Conectado como <span className="font-medium">{email ?? "-"}</span>
@@ -309,71 +282,77 @@ export default function ClientsPage() {
         ) : null}
 
         {errMsg ? (
-          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">
+          <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">
             {errMsg}
           </div>
         ) : null}
 
         {okMsg ? (
-          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
+          <div role="status" aria-live="polite" className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
             ✅ {okMsg}
           </div>
         ) : null}
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="text-xs uppercase tracking-widest opacity-70">Nuevo cliente</div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs uppercase tracking-widest opacity-70">Nuevo cliente</div>
 
-          <label className="mt-3 block text-xs opacity-70">Nombre *</label>
-          <input
-            ref={nameRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={onKeyDown}
-            className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-            placeholder="Ej: Juan Pérez"
-          />
+            <label className="mt-3 block text-xs opacity-70">Nombre *</label>
+            <input
+              ref={nameRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={onKeyDown}
+              required
+              aria-required="true"
+              className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+              placeholder="Ej: Juan Pérez"
+            />
 
-          <label className="mt-3 block text-xs opacity-70">Teléfono (opcional)</label>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onKeyDown={onKeyDown}
-            className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-            placeholder="Ej: 351..."
-          />
+            <label className="mt-3 block text-xs opacity-70">Teléfono (opcional)</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={onKeyDown}
+              className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+              placeholder="Ej: 351..."
+            />
 
-          <label className="mt-3 block text-xs opacity-70">Referencia *</label>
-          <input
-            ref={refRef}
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-            onKeyDown={onKeyDown}
-            className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-            placeholder="Ej: recomendado por..."
-          />
+            <label className="mt-3 block text-xs opacity-70">Referencia *</label>
+            <input
+              ref={refRef}
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              onKeyDown={onKeyDown}
+              required
+              aria-required="true"
+              className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+              placeholder="Ej: recomendado por..."
+            />
 
-          <button
-            type="button"
-            onClick={() => void createClient()}
-            disabled={loading || !tenantId}
-            className="mt-4 w-full rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-          >
-            Guardar cliente
-          </button>
+            <button
+              type="button"
+              onClick={() => void createClient()}
+              disabled={loading || !tenantId}
+              className="mt-4 w-full rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+            >
+              Guardar cliente
+            </button>
 
-          <div className="mt-3 text-xs opacity-60">
-            Tip: podés apretar <b>Enter</b> para guardar rápido.
+            <div className="mt-3 text-xs opacity-60">
+              Tip: podés apretar <b>Enter</b> para guardar rápido.
+            </div>
           </div>
-        </div>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="text-xs uppercase tracking-widest opacity-70">Buscar</div>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-            placeholder="Nombre / teléfono / referencia"
-          />
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs uppercase tracking-widest opacity-70">Buscar</div>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+              placeholder="Nombre / teléfono / referencia"
+            />
+          </div>
         </div>
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -410,8 +389,8 @@ export default function ClientsPage() {
         </div>
 
         <div className="mt-6 flex justify-between text-sm underline opacity-80 hover:opacity-100">
-          <a href={returnTo || "/operaciones"}>← {returnTo ? "Volver" : "Operaciones"}</a>
-          <a href="/cierre">Cierre →</a>
+          <Link href={returnTo || "/operaciones"}>← {returnTo ? "Volver" : "Operaciones"}</Link>
+          <Link href="/cierre">Cierre →</Link>
         </div>
       </div>
     </main>

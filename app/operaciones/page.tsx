@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { AppPageHeader } from "@/app/components/app-page-header";
 
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
@@ -87,6 +88,7 @@ export default function OperacionesPage() {
   const [fee, setFee] = useState("0");
   const [savingOp, setSavingOp] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const clientListboxId = "client-suggestions-listbox";
 
   const casualClient = useMemo(
     () => clients.find((c) => clientDisplayName(c).toLowerCase() === "cliente casual") ?? null,
@@ -374,37 +376,9 @@ export default function OperacionesPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-        <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-1 text-2xl font-semibold">Operaciones</h1>
-
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          <Link
-            href="/operaciones"
-            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
-          >
-            Operaciones
-          </Link>
-          <Link
-            href="/clients"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/cierre"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Cierre
-          </Link>
-          <Link
-            href="/reporte"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
-            Reporte
-          </Link>
-        </div>
+    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
+        <AppPageHeader title="Operaciones" activeTab="operaciones" />
 
         <div className="mt-3 flex items-center justify-between gap-3 text-xs opacity-70">
           <span>Día operativo</span>
@@ -429,126 +403,136 @@ export default function OperacionesPage() {
           ) : (
             <>
               {errMsg ? (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{errMsg}</div>
+                <div role="alert" aria-live="assertive" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
+                  {errMsg}
+                </div>
               ) : null}
 
               {dayClosed ? (
-                <div className="mb-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs">
+                <div role="status" aria-live="polite" className="mb-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs">
                   Día cerrado para {businessDate}. No se pueden cargar operaciones.
                 </div>
               ) : null}
 
-              <div className="rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Nueva operación</div>
+              <div className="mt-4 space-y-5 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0">
+                <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+                  <div className="text-xs uppercase tracking-widest opacity-70">Nueva operación</div>
 
-                <label className="mt-3 block text-xs opacity-70">Tipo</label>
-                <select
-                  value={opType}
-                  onChange={(e) => setOpType(e.target.value as "BUY_USD" | "SELL_USD")}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                >
-                  <option value="SELL_USD">VENTA (yo vendo USD)</option>
-                  <option value="BUY_USD">COMPRA (yo compro USD)</option>
-                </select>
+                  <label className="mt-3 block text-xs opacity-70">Tipo</label>
+                  <select
+                    value={opType}
+                    onChange={(e) => setOpType(e.target.value as "BUY_USD" | "SELL_USD")}
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                  >
+                    <option value="SELL_USD">VENTA (yo vendo USD)</option>
+                    <option value="BUY_USD">COMPRA (yo compro USD)</option>
+                  </select>
 
-                <label className="mt-3 block text-xs opacity-70">USD</label>
-                <input
-                  value={usdAmount}
-                  onChange={(e) => setUsdAmount(e.target.value)}
-                  inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                  placeholder="Ej: 100"
-                />
+                  <label className="mt-3 block text-xs opacity-70">USD</label>
+                  <input
+                    value={usdAmount}
+                    onChange={(e) => setUsdAmount(e.target.value)}
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                    placeholder="Ej: 100"
+                  />
 
-                <label className="mt-3 block text-xs opacity-70">Precio ARS/USD</label>
-                <input
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                  placeholder="Ej: 1500"
-                />
+                  <label className="mt-3 block text-xs opacity-70">Precio ARS/USD</label>
+                  <input
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                    placeholder="Ej: 1500"
+                  />
 
-                <div className="mt-2 text-xs opacity-70">
-                  ARS resultante: <b>{arsResultLive ? fmtARS(arsResultLive, 2) : "-"}</b>
+                  <div className="mt-2 text-xs opacity-70">
+                    ARS resultante: <b>{arsResultLive ? fmtARS(arsResultLive, 2) : "-"}</b>
+                  </div>
+
+                  <label className="mt-3 block text-xs opacity-70">Fee (ARS)</label>
+                  <input
+                    value={fee}
+                    onChange={(e) => setFee(e.target.value)}
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                  />
+
+                  <label className="mt-3 block text-xs opacity-70">Cliente</label>
+                  <input
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={showClientMatches}
+                    aria-controls={clientListboxId}
+                    value={clientInput}
+                    onChange={(e) => {
+                      setClientInput(e.target.value);
+                      setSelectedClientId("");
+                    }}
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                    placeholder="Escribí nombre, teléfono o referencia"
+                  />
+
+                  {showClientMatches ? (
+                    <div id={clientListboxId} role="listbox" className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
+                      <div className="space-y-1">
+                        {clientMatches.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            role="option"
+                            aria-selected={selectedClientId === c.id}
+                            onClick={() => selectClient(c)}
+                            className="block w-full rounded-lg border border-white/10 px-2 py-1 text-left text-xs hover:bg-white/10"
+                          >
+                            {clientDisplayName(c)} {c.phone ? `• ${c.phone}` : ""}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-2 text-xs opacity-70">
+                    {selectedClientId && casualClient && selectedClientId === casualClient.id
+                      ? "Cliente por defecto: Cliente casual."
+                      : "Si no existe, se guarda con nombre y luego podés crearlo en Clientes."}
+                  </div>
+
+                  <button
+                    onClick={createOperation}
+                    disabled={savingOp || dayClosed}
+                    className="mt-4 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
+                  >
+                    {savingOp ? "Guardando..." : "Guardar operación"}
+                  </button>
                 </div>
 
-                <label className="mt-3 block text-xs opacity-70">Fee (ARS)</label>
-                <input
-                  value={fee}
-                  onChange={(e) => setFee(e.target.value)}
-                  inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                />
+                <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+                  <div className="text-xs uppercase tracking-widest opacity-70">Últimas 5 operaciones</div>
 
-                <label className="mt-3 block text-xs opacity-70">Cliente</label>
-                <input
-                  value={clientInput}
-                  onChange={(e) => {
-                    setClientInput(e.target.value);
-                    setSelectedClientId("");
-                  }}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                  placeholder="Escribí nombre, teléfono o referencia"
-                />
-
-                {showClientMatches ? (
-                  <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
-                    <div className="space-y-1">
-                      {clientMatches.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => selectClient(c)}
-                          className="block w-full rounded-lg border border-white/10 px-2 py-1 text-left text-xs hover:bg-white/10"
-                        >
-                          {clientDisplayName(c)} {c.phone ? `• ${c.phone}` : ""}
-                        </button>
+                  {ops.length === 0 ? (
+                    <div className="mt-3 text-sm opacity-70">No hay operaciones para este día.</div>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {ops.map((o) => (
+                        <div key={o.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium">
+                              {o.op_type === "SELL_USD" ? "VENTA" : "COMPRA"} • {fmtUSD(o.usd_amount)}
+                            </div>
+                            <div className="text-xs opacity-70">{fmtDateTimeAR(o.op_time)}</div>
+                          </div>
+                          <div className="mt-1 text-xs opacity-70">
+                            Precio: {fmtRateARSperUSD(o.price_ars_per_usd)} • ARS: {fmtARS(o.ars_amount)} • Fee: {fmtARS(o.fee_ars ?? 0, 2)}
+                          </div>
+                          {o.client_name_snapshot ? (
+                            <div className="mt-1 text-xs opacity-70">Cliente: {o.client_name_snapshot}</div>
+                          ) : null}
+                        </div>
                       ))}
                     </div>
-                  </div>
-                ) : null}
-
-                <div className="mt-2 text-xs opacity-70">
-                  {selectedClientId && casualClient && selectedClientId === casualClient.id
-                    ? "Cliente por defecto: Cliente casual."
-                    : "Si no existe, se guarda con nombre y luego podés crearlo en Clientes."}
+                  )}
                 </div>
-
-                <button
-                  onClick={createOperation}
-                  disabled={savingOp || dayClosed}
-                  className="mt-4 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
-                >
-                  {savingOp ? "Guardando..." : "Guardar operación"}
-                </button>
-              </div>
-
-              <div className="mt-5 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Últimas 5 operaciones</div>
-
-                {ops.length === 0 ? (
-                  <div className="mt-3 text-sm opacity-70">No hay operaciones para este día.</div>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {ops.map((o) => (
-                      <div key={o.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">
-                            {o.op_type === "SELL_USD" ? "VENTA" : "COMPRA"} • {fmtUSD(o.usd_amount)}
-                          </div>
-                          <div className="text-xs opacity-70">{fmtDateTimeAR(o.op_time)}</div>
-                        </div>
-                        <div className="mt-1 text-xs opacity-70">
-                          Precio: {fmtRateARSperUSD(o.price_ars_per_usd)} • ARS: {fmtARS(o.ars_amount)} • Fee: {fmtARS(o.fee_ars ?? 0, 2)}
-                        </div>
-                        {o.client_name_snapshot ? (
-                          <div className="mt-1 text-xs opacity-70">Cliente: {o.client_name_snapshot}</div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="mt-5 flex justify-between">
