@@ -7,33 +7,20 @@ import { supabase } from "@/lib/supabase/client";
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
 
-type DailyOpeningRow = {
-  id: string;
-  business_date: string;
-  ars_open: number;
-  usd_open: number;
-  branch_id: string | null;
-};
-
-type OperationRow = {
-  id: string;
-  op_time: string;
-  op_type: "BUY_USD" | "SELL_USD";
-  usd_amount: number;
-  price_ars_per_usd: number;
-  ars_amount: number;
-  fee_ars: number;
-  client_name_snapshot: string | null;
-};
-
 type DailyClosingRow = {
   id: string;
   business_date: string;
-  pnl_total_ars: number;
-  pnl_operativo_ars: number;
-  pnl_valuacion_ars: number;
-  created_at: string;
+  pnl_total_ars: number | null;
+  pnl_operativo_ars: number | null;
+  pnl_valuacion_ars: number | null;
+  ars_open: number | null;
+  ars_close: number | null;
+  usd_open: number | null;
+  usd_close: number | null;
+  created_at: string | null;
 };
+
+type PresetKey = "yesterday" | "7" | "15" | "30" | "365" | "custom";
 
 function todayLocalYYYYMMDD() {
   return new Date().toLocaleDateString("en-CA");
@@ -44,7 +31,6 @@ function yyyyMmDdMinusDays(days: number) {
   return d.toLocaleDateString("en-CA");
 }
 
-// --- FORMATO es-AR ---
 const nf0 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 const nf2 = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function fmtARS(n: number, decimals: 0 | 2 = 2) {
@@ -57,81 +43,100 @@ function fmtUSD(n: number, decimals: 0 | 2 = 2) {
   const body = decimals === 2 ? nf2.format(x) : nf0.format(x);
   return `U$D ${body}`;
 }
-function fmtDateTimeAR(iso: string) {
-  return new Date(iso).toLocaleString("es-AR", {
-    timeZone: "America/Argentina/Cordoba",
-    hour12: false,
-  });
-}
 function fmtDateAR(yyyyMmDd: string) {
   return new Date(`${yyyyMmDd}T00:00:00`).toLocaleDateString("es-AR", {
     timeZone: "America/Argentina/Cordoba",
   });
 }
+function isFiniteNumber(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x);
+}
+
+function getGainARS(c: DailyClosingRow) {
+  if (isFiniteNumber(c.ars_open) && isFiniteNumber(c.ars_close)) return c.ars_close - c.ars_open;
+  return Number(c.pnl_total_ars ?? 0);
+}
+function getGainUSD(c: DailyClosingRow) {
+  if (isFiniteNumber(c.usd_open) && isFiniteNumber(c.usd_close)) return c.usd_close - c.usd_open;
+  return 0;
+}
 
 export default function ReportePage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [branch, setBranch] = useState<BranchRow | null>(null);
-
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // Ventana 30 días (resumen)
-  const [windowDays, setWindowDays] = useState(30);
-const fromDate = useMemo(() => yyyyMmDdMinusDays(windowDays), [windowDays]);
-const today = useMemo(() => todayLocalYYYYMMDD(), []);
-
-const [rangeFrom, setRangeFrom] = useState<string>(fromDate);
-const [rangeTo, setRangeTo] = useState<string>(today);
+  const [preset, setPreset] = useState<PresetKey>("30");
+  const [rangeFrom, setRangeFrom] = useState<string>(yyyyMmDdMinusDays(30));
+  const [rangeTo, setRangeTo] = useState<string>(todayLocalYYYYMMDD());
 
   const [closings, setClosings] = useState<DailyClosingRow[]>([]);
 
-  // Detalle por día
-  const [day, setDay] = useState<string>(todayLocalYYYYMMDD());
-  const [openingDay, setOpeningDay] = useState<DailyOpeningRow | null>(null);
-  const [opsDay, setOpsDay] = useState<OperationRow[]>([]);
-  const [closingDay, setClosingDay] = useState<DailyClosingRow | null>(null);
-  const [loadingDay, setLoadingDay] = useState(false);
-
-  const totals30 = useMemo(() => {
-    let total = 0, op = 0, val = 0;
+  const totals = useMemo(() => {
+    let ars = 0;
+    let usd = 0;
+    let operativo = 0;
+    let valuacion = 0;
     for (const c of closings) {
-      total += c.pnl_total_ars ?? 0;
-      op += c.pnl_operativo_ars ?? 0;
-      val += c.pnl_valuacion_ars ?? 0;
+      ars += getGainARS(c);
+      usd += getGainUSD(c);
+      operativo += Number(c.pnl_operativo_ars ?? 0);
+      valuacion += Number(c.pnl_valuacion_ars ?? 0);
     }
-    return { total, op, val };
+    return { ars, usd, operativo, valuacion };
   }, [closings]);
 
-  const cashDay = useMemo(() => {
-    if (!openingDay) return null;
+  const chartSeries = useMemo(() => {
+    const asc = [...closings].sort((a, b) => String(a.business_date).localeCompare(String(b.business_date)));
+    return asc.map((c) => ({
+      date: c.business_date,
+      ars: getGainARS(c),
+    }));
+  }, [closings]);
 
-    let ars = openingDay.ars_open;
-    let usd = openingDay.usd_open;
-    let fees = 0;
+  const chartPath = useMemo(() => {
+    if (chartSeries.length < 2) return "";
+    const w = 620;
+    const h = 180;
+    const pad = 14;
+    const values = chartSeries.map((p) => p.ars);
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 0);
+    const span = max - min || 1;
 
-    let usdBought = 0;
-    let usdSold = 0;
+    const points = chartSeries.map((p, i) => {
+      const x = pad + (i * (w - pad * 2)) / (chartSeries.length - 1);
+      const y = h - pad - ((p.ars - min) * (h - pad * 2)) / span;
+      return `${x},${y}`;
+    });
+    return points.join(" ");
+  }, [chartSeries]);
 
-    for (const o of opsDay) {
-      const feeMov = o.fee_ars ?? 0;
-      fees += feeMov;
+  const zeroLineY = useMemo(() => {
+    const h = 180;
+    const pad = 14;
+    if (chartSeries.length === 0) return h - pad;
+    const values = chartSeries.map((p) => p.ars);
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 0);
+    const span = max - min || 1;
+    return h - pad - ((0 - min) * (h - pad * 2)) / span;
+  }, [chartSeries]);
 
-      if (o.op_type === "SELL_USD") {
-        ars += o.ars_amount;
-        usd -= o.usd_amount;
-        usdSold += o.usd_amount;
-      } else {
-        ars -= o.ars_amount;
-        usd += o.usd_amount;
-        usdBought += o.usd_amount;
-      }
-      ars -= feeMov;
+  const applyPreset = (value: PresetKey) => {
+    const today = todayLocalYYYYMMDD();
+    if (value === "custom") return;
+    if (value === "yesterday") {
+      const y = yyyyMmDdMinusDays(1);
+      setRangeFrom(y);
+      setRangeTo(y);
+      return;
     }
-
-    return { ars, usd, fees, usdBought, usdSold };
-  }, [openingDay, opsDay]);
+    const days = Number(value);
+    setRangeFrom(yyyyMmDdMinusDays(days));
+    setRangeTo(today);
+  };
 
   const loadBase = async () => {
     setLoading(true);
@@ -142,7 +147,6 @@ const [rangeTo, setRangeTo] = useState<string>(today);
 
     if (!user) {
       setEmail(null);
-      setTenantId(null);
       setBranch(null);
       setClosings([]);
       setLoading(false);
@@ -163,8 +167,6 @@ const [rangeTo, setRangeTo] = useState<string>(today);
       setLoading(false);
       return;
     }
-
-    setTenantId(profile.tenant_id);
 
     const { data: branches, error: brErr } = await supabase
       .from("branches")
@@ -191,14 +193,15 @@ const [rangeTo, setRangeTo] = useState<string>(today);
 
     const { data: hist, error: histErr } = await supabase
       .from("daily_closings")
-      .select("id,business_date,pnl_total_ars,pnl_operativo_ars,pnl_valuacion_ars,created_at")
+      .select(
+        "id,business_date,pnl_total_ars,pnl_operativo_ars,pnl_valuacion_ars,ars_open,ars_close,usd_open,usd_close,created_at"
+      )
       .eq("tenant_id", profile.tenant_id)
       .eq("branch_id", b.id)
       .gte("business_date", rangeFrom)
-.lte("business_date", rangeTo)
-
+      .lte("business_date", rangeTo)
       .order("business_date", { ascending: false })
-.order("created_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(365);
 
     if (histErr) {
@@ -210,86 +213,29 @@ const [rangeTo, setRangeTo] = useState<string>(today);
     }
 
     const rows = (hist ?? []) as DailyClosingRow[];
+    const byDay = new Map<string, DailyClosingRow>();
+    for (const r of rows) {
+      const prev = byDay.get(r.business_date);
+      if (!prev) {
+        byDay.set(r.business_date, r);
+        continue;
+      }
+      const prevTs = prev.created_at ? new Date(prev.created_at).getTime() : 0;
+      const curTs = r.created_at ? new Date(r.created_at).getTime() : 0;
+      if (curTs >= prevTs) byDay.set(r.business_date, r);
+    }
 
-// Por seguridad: si existieran varios cierres del mismo business_date,
-// nos quedamos con el más nuevo (mayor created_at).
-const byDay = new Map<string, DailyClosingRow>();
-for (const r of rows) {
-  const key = r.business_date;
-  const prev = byDay.get(key);
-  if (!prev) {
-    byDay.set(key, r);
-    continue;
-  }
-  const prevTs = prev.created_at ? new Date(prev.created_at).getTime() : 0;
-  const curTs = r.created_at ? new Date(r.created_at).getTime() : 0;
-  if (curTs >= prevTs) byDay.set(key, r);
-}
-
-// Queda una lista sin duplicados por día, ordenada por fecha desc
-const unique = Array.from(byDay.values()).sort((a, b) =>
-  String(b.business_date).localeCompare(String(a.business_date))
-);
-
-setClosings(unique);
+    const unique = Array.from(byDay.values()).sort((a, b2) =>
+      String(b2.business_date).localeCompare(String(a.business_date))
+    );
+    setClosings(unique);
     setLoading(false);
   };
 
-  const loadDayDetail = async () => {
-    if (!tenantId || !branch?.id) return;
-    setLoadingDay(true);
-
-    // arranque
-    const { data: openRow } = await supabase
-      .from("daily_openings")
-      .select("id,business_date,ars_open,usd_open,branch_id")
-      .eq("tenant_id", tenantId)
-      .eq("branch_id", branch.id)
-      .eq("business_date", day)
-      .maybeSingle<DailyOpeningRow>();
-
-    setOpeningDay(openRow ?? null);
-
-    // operaciones
-    const start = `${day}T00:00:00`;
-    const end = `${day}T23:59:59`;
-
-    const { data: opRows } = await supabase
-      .from("operations")
-      .select("id,op_time,op_type,usd_amount,price_ars_per_usd,ars_amount,fee_ars,client_name_snapshot")
-      .eq("tenant_id", tenantId)
-      .eq("branch_id", branch.id)
-      .eq("is_void", false)
-      .gte("op_time", start)
-      .lte("op_time", end)
-      .order("op_time", { ascending: false })
-      .limit(200);
-
-    setOpsDay((opRows ?? []) as OperationRow[]);
-
-    // cierre guardado
-    const { data: closRows } = await supabase
-      .from("daily_closings")
-      .select("id,business_date,pnl_total_ars,pnl_operativo_ars,pnl_valuacion_ars,created_at")
-      .eq("tenant_id", tenantId)
-      .eq("branch_id", branch.id)
-      .eq("business_date", day)
-      .limit(1);
-
-    setClosingDay((closRows?.[0] ?? null) as DailyClosingRow | null);
-
-    setLoadingDay(false);
-  };
-
   useEffect(() => {
-    loadBase();
+    void loadBase();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeFrom, rangeTo]);
-
-  useEffect(() => {
-    if (tenantId && branch?.id) loadDayDetail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, branch?.id, day]);
 
   const signIn = async () => {
     const redirectTo = `${window.location.origin}/reporte`;
@@ -302,12 +248,8 @@ setClosings(unique);
   const signOut = async () => {
     await supabase.auth.signOut();
     setEmail(null);
-    setTenantId(null);
     setBranch(null);
     setClosings([]);
-    setOpeningDay(null);
-    setOpsDay([]);
-    setClosingDay(null);
   };
 
   return (
@@ -317,22 +259,13 @@ setClosings(unique);
         <h1 className="mt-1 text-2xl font-semibold">Reporte</h1>
 
         <div className="mt-3 grid grid-cols-4 gap-2">
-          <Link
-            href="/operaciones"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
+          <Link href="/operaciones" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
             Operaciones
           </Link>
-          <Link
-            href="/clients"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
+          <Link href="/clients" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
             Clientes
           </Link>
-          <Link
-            href="/cierre"
-            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
-          >
+          <Link href="/cierre" className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10">
             Cierre
           </Link>
           <Link
@@ -343,95 +276,51 @@ setClosings(unique);
           </Link>
         </div>
 
-        <div className="mt-3 text-xs opacity-70">Ventana</div>
+        <div className="mt-3 text-xs opacity-70">Filtro preestablecido</div>
+        <select
+          value={preset}
+          onChange={(e) => {
+            const p = e.target.value as PresetKey;
+            setPreset(p);
+            applyPreset(p);
+          }}
+          className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 text-sm outline-none"
+        >
+          <option value="yesterday">Ayer</option>
+          <option value="7">Últimos 7 días</option>
+          <option value="15">Últimos 15 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="365">Últimos 365 días</option>
+          <option value="custom">Personalizable</option>
+        </select>
 
-<div className="mt-2 flex flex-wrap gap-2">
-  <button
-    type="button"
-    onClick={() => {
-      const d = 7;
-      setWindowDays(d);
-      setRangeFrom(yyyyMmDdMinusDays(d));
-      setRangeTo(todayLocalYYYYMMDD());
-    }}
-    className={`rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 ${
-      windowDays === 7 ? "bg-white/10" : ""
-    }`}
-  >
-    Últimos 7
-  </button>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs opacity-70">Desde</label>
+            <input
+              type="date"
+              value={rangeFrom}
+              onChange={(e) => setRangeFrom(e.target.value)}
+              disabled={preset !== "custom"}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 outline-none disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs opacity-70">Hasta</label>
+            <input
+              type="date"
+              value={rangeTo}
+              onChange={(e) => setRangeTo(e.target.value)}
+              disabled={preset !== "custom"}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 outline-none disabled:opacity-50"
+            />
+          </div>
+        </div>
 
-  <button
-    type="button"
-    onClick={() => {
-      const d = 15;
-      setWindowDays(d);
-      setRangeFrom(yyyyMmDdMinusDays(d));
-      setRangeTo(todayLocalYYYYMMDD());
-    }}
-    className={`rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 ${
-      windowDays === 15 ? "bg-white/10" : ""
-    }`}
-  >
-    Últimos 15
-  </button>
+        <div className="mt-2 text-xs opacity-70">
+          Rango actual: <b>{rangeFrom}</b> → <b>{rangeTo}</b>
+        </div>
 
-  <button
-    type="button"
-    onClick={() => {
-      const d = 30;
-      setWindowDays(d);
-      setRangeFrom(yyyyMmDdMinusDays(d));
-      setRangeTo(todayLocalYYYYMMDD());
-    }}
-    className={`rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 ${
-      windowDays === 30 ? "bg-white/10" : ""
-    }`}
-  >
-    Últimos 30
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      const d = 365;
-      setWindowDays(d);
-      setRangeFrom(yyyyMmDdMinusDays(d));
-      setRangeTo(todayLocalYYYYMMDD());
-    }}
-    className={`rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 ${
-      windowDays === 365 ? "bg-white/10" : ""
-    }`}
-  >
-    Últimos 365
-  </button>
-</div>
-
-<div className="mt-3 flex flex-wrap items-end gap-3">
-  <div>
-    <label className="block text-xs opacity-70">Desde</label>
-    <input
-      type="date"
-      value={rangeFrom}
-      onChange={(e) => setRangeFrom(e.target.value)}
-      className="mt-1 rounded-lg border border-white/15 bg-transparent px-3 py-2 outline-none"
-    />
-  </div>
-
-  <div>
-    <label className="block text-xs opacity-70">Hasta</label>
-    <input
-      type="date"
-      value={rangeTo}
-      onChange={(e) => setRangeTo(e.target.value)}
-      className="mt-1 rounded-lg border border-white/15 bg-transparent px-3 py-2 outline-none"
-    />
-  </div>
-</div>
-
-<div className="mt-2 text-xs opacity-70">
-  Rango actual: <b>{rangeFrom}</b> → <b>{rangeTo}</b>
-</div>
         <div className="mt-4">
           {loading ? (
             <div className="text-sm opacity-70">Cargando...</div>
@@ -449,128 +338,70 @@ setClosings(unique);
               </div>
 
               {errMsg ? (
-                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
-                  {errMsg}
-                </div>
+                <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{errMsg}</div>
               ) : null}
 
-              {/* RESUMEN */}
-              <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">
-                  Resumen ({closings.length} días cerrados)
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+                <div className="text-xs uppercase tracking-widest opacity-70">Resumen ({closings.length} cierres)</div>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-white/10 p-3">
+                    <div className="text-xs opacity-70">Ganancia/pérdida ARS</div>
+                    <div className="mt-1 text-lg font-semibold">{fmtARS(totals.ars)}</div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 p-3">
+                    <div className="text-xs opacity-70">Ganancia/pérdida USD</div>
+                    <div className="mt-1 text-lg font-semibold">{fmtUSD(totals.usd)}</div>
+                  </div>
                 </div>
-                <div className="mt-2 text-lg font-semibold">{fmtARS(totals30.total)}</div>
-                <div className="mt-1 text-xs opacity-70">
-                  Operativo: <b>{fmtARS(totals30.op)}</b> • Valuación: <b>{fmtARS(totals30.val)}</b>
+                <div className="mt-2 text-xs opacity-70">
+                  Operativo: <b>{fmtARS(totals.operativo)}</b> • Valuación: <b>{fmtARS(totals.valuacion)}</b>
                 </div>
               </div>
 
-              {/* DETALLE DEL DIA */}
-              <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs uppercase tracking-widest opacity-70">Detalle del día</div>
-                </div>
-
-                <label className="mt-3 block text-xs opacity-70">Día</label>
-                <input
-                  type="date"
-                  value={day}
-                  onChange={(e) => setDay(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                />
-
-                {loadingDay ? (
-                  <div className="mt-3 text-sm opacity-70">Cargando detalle...</div>
-                ) : !openingDay ? (
-                  <div className="mt-3 text-sm opacity-70">
-                    No hay arranque para este día. (Sin arranque no se puede calcular caja final.)
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+                <div className="text-xs uppercase tracking-widest opacity-70">Ganancias por día</div>
+                {chartSeries.length === 0 ? (
+                  <div className="mt-2 text-sm opacity-70">Sin datos para graficar.</div>
+                ) : chartSeries.length === 1 ? (
+                  <div className="mt-2 text-sm opacity-70">
+                    {fmtDateAR(chartSeries[0].date)}: <b>{fmtARS(chartSeries[0].ars)}</b>
                   </div>
                 ) : (
-                  <>
-                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="text-xs uppercase tracking-widest opacity-70">Caja</div>
-                      <div className="mt-2 grid grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-white/10 p-3">
-                          <div className="text-xs opacity-70">ARS (inicio → fin)</div>
-                          <div className="mt-1 text-sm font-semibold">
-                            {fmtARS(openingDay.ars_open)} → {fmtARS(cashDay?.ars ?? openingDay.ars_open)}
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-white/10 p-3">
-                          <div className="text-xs opacity-70">USD (inicio → fin)</div>
-                          <div className="mt-1 text-sm font-semibold">
-                            {fmtUSD(openingDay.usd_open)} → {fmtUSD(cashDay?.usd ?? openingDay.usd_open)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 text-xs opacity-70">
-                        Fees: <b>{fmtARS(cashDay?.fees ?? 0)}</b> • Compraste: <b>{fmtUSD(cashDay?.usdBought ?? 0)}</b> • Vendiste: <b>{fmtUSD(cashDay?.usdSold ?? 0)}</b>
-                      </div>
+                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2">
+                    <svg viewBox="0 0 620 180" className="h-40 w-full">
+                      <line x1="14" y1={zeroLineY} x2="606" y2={zeroLineY} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                      <polyline fill="none" stroke="rgb(16 185 129)" strokeWidth="2.5" points={chartPath} />
+                    </svg>
+                    <div className="mt-1 flex items-center justify-between text-[11px] opacity-70">
+                      <span>{fmtDateAR(chartSeries[0].date)}</span>
+                      <span>{fmtDateAR(chartSeries[chartSeries.length - 1].date)}</span>
                     </div>
-
-                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="text-xs uppercase tracking-widest opacity-70">Cierre guardado</div>
-                      {!closingDay ? (
-                        <div className="mt-2 text-sm opacity-70">No hay cierre guardado para este día.</div>
-                      ) : (
-                        <>
-                          <div className="mt-2 text-lg font-semibold">{fmtARS(closingDay.pnl_total_ars)}</div>
-                          <div className="mt-1 text-xs opacity-70">
-                            Operativo: <b>{fmtARS(closingDay.pnl_operativo_ars)}</b> • Valuación: <b>{fmtARS(closingDay.pnl_valuacion_ars)}</b>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="text-xs uppercase tracking-widest opacity-70">Operaciones del día</div>
-                      {opsDay.length === 0 ? (
-                        <div className="mt-2 text-sm opacity-70">No hay operaciones para este día.</div>
-                      ) : (
-                        <div className="mt-3 space-y-2">
-                          {opsDay.map((o) => (
-                            <div key={o.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">
-                                  {o.op_type === "SELL_USD" ? "VENTA" : "COMPRA"} • {fmtUSD(o.usd_amount, 2)}
-                                </div>
-                                <div className="text-xs opacity-70">
-                                  {fmtDateTimeAR(o.op_time)}
-                                </div>
-                              </div>
-                              <div className="mt-1 text-xs opacity-70">
-                                Precio: <b>{fmtARS(o.price_ars_per_usd)}</b> • ARS: <b>{fmtARS(o.ars_amount)}</b> • Fee: <b>{fmtARS(o.fee_ars ?? 0)}</b>
-                              </div>
-                              {o.client_name_snapshot ? (
-                                <div className="mt-1 text-xs opacity-70">Cliente: {o.client_name_snapshot}</div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* LISTA CIERRES */}
-              <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Cierres guardados ({rangeFrom} → {rangeTo})</div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+                <div className="text-xs uppercase tracking-widest opacity-70">Cierres del período</div>
                 {closings.length === 0 ? (
-                  <div className="mt-3 text-sm opacity-70">Todavía no hay cierres guardados.</div>
+                  <div className="mt-3 text-sm opacity-70">No hay cierres guardados para este rango.</div>
                 ) : (
                   <div className="mt-3 space-y-2">
-                    {closings.map((c) => (
-                      <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{fmtDateAR(c.business_date)}</div>
-                          <div className="text-sm font-semibold">{fmtARS(c.pnl_total_ars)}</div>
+                    {closings.map((c) => {
+                      const gainArs = getGainARS(c);
+                      const gainUsd = getGainUSD(c);
+                      return (
+                        <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium">{fmtDateAR(c.business_date)}</div>
+                            <div className="text-sm font-semibold">{fmtARS(gainArs)}</div>
+                          </div>
+                          <div className="mt-1 text-xs opacity-70">
+                            USD: <b>{fmtUSD(gainUsd)}</b> • Operativo: <b>{fmtARS(Number(c.pnl_operativo_ars ?? 0))}</b> • Valuación:{" "}
+                            <b>{fmtARS(Number(c.pnl_valuacion_ars ?? 0))}</b>
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs opacity-70">
-                          Operativo: {fmtARS(c.pnl_operativo_ars)} • Valuación: {fmtARS(c.pnl_valuacion_ars)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

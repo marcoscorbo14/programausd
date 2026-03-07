@@ -446,28 +446,31 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
     <div className="mt-2 text-sm opacity-70">Cargá el arranque y operaciones para ver el resultado.</div>
   ) : (
     <>
-      {(() => {
-        const deltaArs = (totals.ars ?? 0) - (opening.ars_open ?? 0);
-        const deltaUsd = (totals.usd ?? 0) - (opening.usd_open ?? 0);
+	      {(() => {
+	        const deltaArs = (totals.ars ?? 0) - (opening.ars_open ?? 0);
+	        const deltaUsd = (totals.usd ?? 0) - (opening.usd_open ?? 0);
 
         return (
           <>
-            <div className="mt-2 grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-white/10 p-3">
-                <div className="text-xs opacity-70">Resultado ARS</div>
-                <div className="mt-1 text-lg font-semibold">{fmtARS(deltaArs, 2)}</div>
-              </div>
-              <div className="rounded-xl border border-white/10 p-3">
-                <div className="text-xs opacity-70">Resultado USD</div>
-                <div className="mt-1 text-lg font-semibold">{fmtUSD(deltaUsd, 2)}</div>
-              </div>
-            </div>
+	            <div className="mt-2 grid grid-cols-2 gap-3">
+	              <div className="rounded-xl border border-white/10 p-3">
+	                <div className="text-xs opacity-70">Ganancia en pesos</div>
+	                <div className="mt-1 text-lg font-semibold">{fmtARS(deltaArs, 2)}</div>
+	              </div>
+	              <div className="rounded-xl border border-white/10 p-3">
+	                <div className="text-xs opacity-70">Ganancia en dólares</div>
+	                <div className="mt-1 text-lg font-semibold">{fmtUSD(deltaUsd, 2)}</div>
+	              </div>
+	            </div>
 
-            <div className="mt-2 text-xs opacity-70">
-              Caja inicial: <b>{fmtARS(opening.ars_open, 2)}</b> / <b>{fmtUSD(opening.usd_open, 2)}</b>
-              {" • "}
-              Caja final: <b>{fmtARS(totals.ars, 2)}</b> / <b>{fmtUSD(totals.usd, 2)}</b>
-            </div>
+	            <div className="mt-2 text-xs opacity-70">
+	              Diferencias totales: <b>ARS {fmtARS(deltaArs, 2)}</b> • <b>USD {fmtUSD(deltaUsd, 2)}</b>
+	            </div>
+	            <div className="mt-1 text-xs opacity-70">
+	              Caja inicial: <b>{fmtARS(opening.ars_open, 2)}</b> / <b>{fmtUSD(opening.usd_open, 2)}</b>
+	              {" • "}
+	              Caja final: <b>{fmtARS(totals.ars, 2)}</b> / <b>{fmtUSD(totals.usd, 2)}</b>
+	            </div>
           </>
         );
       })()}
@@ -477,7 +480,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
 
 {/* VALUACIÓN (opcional, con precios) */}
 <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-  <div className="text-xs uppercase tracking-widest opacity-70">Valuación (opcional)</div>
+  <div className="text-xs uppercase tracking-widest opacity-70">Ganancia por valuación</div>
   {!closeCalc ? (
     <div className="mt-2 text-sm opacity-70">Completá precios válidos para ver la valuación.</div>
   ) : (
@@ -485,9 +488,9 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
       <div className="mt-2 text-xs opacity-70">
         Patrimonio inicial: <b>{fmtARS(closeCalc.equityOpen)}</b> • Patrimonio final: <b>{fmtARS(closeCalc.equityClose)}</b>
       </div>
-      <div className="mt-2 text-lg font-semibold">Valuación total (ARS): {fmtARS(closeCalc.pnlTotal)}</div>
+      <div className="mt-2 text-lg font-semibold">Ganancia por valuación (ARS): {fmtARS(closeCalc.pnlValuacion)}</div>
       <div className="mt-1 text-xs opacity-70">
-        Operativo: <b>{fmtARS(closeCalc.pnlOperativo)}</b> • Valuación: <b>{fmtARS(closeCalc.pnlValuacion)}</b>
+        Ganancia total (ARS): <b>{fmtARS(closeCalc.pnlTotal)}</b> • Ganancia operativa (ARS): <b>{fmtARS(closeCalc.pnlOperativo)}</b>
       </div>
     </>
   )}
