@@ -56,6 +56,17 @@ function fmtUSD(n: number, decimals: 0 | 2 = 2) {
   const body = decimals === 2 ? nf2.format(x) : nf0.format(x);
   return `U$D ${body}`;
 }
+function fmtDateTimeAR(iso: string) {
+  return new Date(iso).toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    hour12: false,
+  });
+}
+function fmtDateAR(yyyyMmDd: string) {
+  return new Date(`${yyyyMmDd}T00:00:00`).toLocaleDateString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+  });
+}
 
 export default function ReportePage() {
   const [loading, setLoading] = useState(true);
@@ -67,7 +78,6 @@ export default function ReportePage() {
 
   // Ventana 30 días (resumen)
   const [windowDays, setWindowDays] = useState(30);
-const [customDays, setCustomDays] = useState(30);
 const fromDate = useMemo(() => yyyyMmDdMinusDays(windowDays), [windowDays]);
 const today = useMemo(() => todayLocalYYYYMMDD(), []);
 
@@ -273,7 +283,7 @@ setClosings(unique);
   useEffect(() => {
     loadBase();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [rangeFrom, rangeTo]);
 
   useEffect(() => {
     if (tenantId && branch?.id) loadDayDetail();
@@ -313,7 +323,6 @@ setClosings(unique);
     onClick={() => {
       const d = 7;
       setWindowDays(d);
-      setCustomDays(d);
       setRangeFrom(yyyyMmDdMinusDays(d));
       setRangeTo(todayLocalYYYYMMDD());
     }}
@@ -329,7 +338,6 @@ setClosings(unique);
     onClick={() => {
       const d = 15;
       setWindowDays(d);
-      setCustomDays(d);
       setRangeFrom(yyyyMmDdMinusDays(d));
       setRangeTo(todayLocalYYYYMMDD());
     }}
@@ -345,7 +353,6 @@ setClosings(unique);
     onClick={() => {
       const d = 30;
       setWindowDays(d);
-      setCustomDays(d);
       setRangeFrom(yyyyMmDdMinusDays(d));
       setRangeTo(todayLocalYYYYMMDD());
     }}
@@ -361,7 +368,6 @@ setClosings(unique);
     onClick={() => {
       const d = 365;
       setWindowDays(d);
-      setCustomDays(d);
       setRangeFrom(yyyyMmDdMinusDays(d));
       setRangeTo(todayLocalYYYYMMDD());
     }}
@@ -424,9 +430,11 @@ setClosings(unique);
                 </div>
               ) : null}
 
-              {/* RESUMEN 30 DIAS */}
+              {/* RESUMEN */}
               <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Resumen (30 días)</div>
+                <div className="text-xs uppercase tracking-widest opacity-70">
+                  Resumen ({closings.length} días cerrados)
+                </div>
                 <div className="mt-2 text-lg font-semibold">{fmtARS(totals30.total)}</div>
                 <div className="mt-1 text-xs opacity-70">
                   Operativo: <b>{fmtARS(totals30.op)}</b> • Valuación: <b>{fmtARS(totals30.val)}</b>
@@ -503,7 +511,7 @@ setClosings(unique);
                                   {o.op_type === "SELL_USD" ? "VENTA" : "COMPRA"} • {fmtUSD(o.usd_amount, 2)}
                                 </div>
                                 <div className="text-xs opacity-70">
-                                  {new Date(o.op_time).toLocaleString()}
+                                  {fmtDateTimeAR(o.op_time)}
                                 </div>
                               </div>
                               <div className="mt-1 text-xs opacity-70">
@@ -523,7 +531,7 @@ setClosings(unique);
 
               {/* LISTA CIERRES */}
               <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Cierres guardados (30 días)</div>
+                <div className="text-xs uppercase tracking-widest opacity-70">Cierres guardados ({rangeFrom} → {rangeTo})</div>
                 {closings.length === 0 ? (
                   <div className="mt-3 text-sm opacity-70">Todavía no hay cierres guardados.</div>
                 ) : (
@@ -531,7 +539,7 @@ setClosings(unique);
                     {closings.map((c) => (
                       <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{c.business_date}</div>
+                          <div className="text-sm font-medium">{fmtDateAR(c.business_date)}</div>
                           <div className="text-sm font-semibold">{fmtARS(c.pnl_total_ars)}</div>
                         </div>
                         <div className="mt-1 text-xs opacity-70">

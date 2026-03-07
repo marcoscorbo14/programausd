@@ -125,7 +125,7 @@ export default function CierrePage() {
     const pnlValuacion = pnlTotal - pnlOperativo;
 
     return { venta, compra, equityOpen, equityClose, pnlTotal, pnlOperativo, pnlValuacion };
-  }, [opening, totals, precioVenta, precioCompra, ops]);
+  }, [opening, totals, precioVenta, precioCompra]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -180,11 +180,11 @@ export default function CierrePage() {
     setBranch(b);
     
     // ¿El día ya está cerrado? (si existe, bloqueamos y mostramos el cierre)
-if (tenantId && b?.id && businessDate) {
+    if (profile.tenant_id && b?.id && businessDate) {
   const { data: existingClose, error: closeErr } = await supabase
     .from("daily_closings")
     .select("id,business_date,pnl_total_ars,pnl_operativo_ars,pnl_valuacion_ars,created_at")
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", profile.tenant_id)
     .eq("branch_id", b.id)
     .eq("business_date", businessDate)
     .order("created_at", { ascending: false })
@@ -472,7 +472,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                     <button
                       onClick={closeDay}
                       disabled={savingClose || !closeCalc || !!closingSaved}
-                      className="mt-4 w-full rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+                      className="mt-4 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
                     >
                       {savingClose ? "Guardando..." : "Cerrar el día (guardar)"}
                     </button>
