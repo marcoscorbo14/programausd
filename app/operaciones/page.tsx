@@ -92,6 +92,10 @@ export default function OperacionesPage() {
     () => clients.find((c) => clientDisplayName(c).toLowerCase() === "cliente casual") ?? null,
     [clients]
   );
+  const selectedClientName = useMemo(() => {
+    const selected = clients.find((c) => c.id === selectedClientId);
+    return selected ? clientDisplayName(selected).toLowerCase() : "";
+  }, [clients, selectedClientId]);
 
   const clientMatches = useMemo(() => {
     const q = clientInput.trim().toLowerCase();
@@ -107,6 +111,12 @@ export default function OperacionesPage() {
       })
       .slice(0, 8);
   }, [clientInput, clients]);
+  const showClientMatches = useMemo(() => {
+    const q = clientInput.trim().toLowerCase();
+    if (!q) return false;
+    if (selectedClientName && q === selectedClientName) return false;
+    return clientMatches.length > 0;
+  }, [clientInput, selectedClientName, clientMatches]);
 
   const arsResultLive = useMemo(() => {
     const u = num(usdAmount);
@@ -369,7 +379,34 @@ export default function OperacionesPage() {
         <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
         <h1 className="mt-1 text-2xl font-semibold">Operaciones</h1>
 
-        <div className="mt-2 flex items-center justify-between gap-3 text-xs opacity-70">
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <Link
+            href="/operaciones"
+            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
+          >
+            Operaciones
+          </Link>
+          <Link
+            href="/clients"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Clientes
+          </Link>
+          <Link
+            href="/cierre"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Cierre
+          </Link>
+          <Link
+            href="/reporte"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Reporte
+          </Link>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 text-xs opacity-70">
           <span>Día operativo</span>
           <input
             type="date"
@@ -460,10 +497,9 @@ export default function OperacionesPage() {
                   placeholder="Escribí nombre, teléfono o referencia"
                 />
 
-                {clientMatches.length > 0 ? (
+                {showClientMatches ? (
                   <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
-                    <div className="text-[11px] opacity-70">Coincidencias</div>
-                    <div className="mt-1 space-y-1">
+                    <div className="space-y-1">
                       {clientMatches.map((c) => (
                         <button
                           key={c.id}
