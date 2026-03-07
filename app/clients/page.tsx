@@ -33,7 +33,6 @@ export default function ClientsPage() {
   const refRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -83,14 +82,11 @@ export default function ClientsPage() {
     const user = userRes.user;
 
     if (!user) {
-      setEmail(null);
       setTenantId(null);
       setClients([]);
       setLoading(false);
       return;
     }
-
-    setEmail(user.email ?? null);
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
@@ -267,19 +263,9 @@ export default function ClientsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+    <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
         <AppPageHeader title="Clientes" activeTab="clients" />
-
-        <div className="mt-3 text-xs opacity-70">
-          Conectado como <span className="font-medium">{email ?? "-"}</span>
-        </div>
-
-        {returnTo ? (
-          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs opacity-80">
-            Volverá automáticamente a <b>{returnTo}</b> después de guardar.
-          </div>
-        ) : null}
 
         {errMsg ? (
           <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">
@@ -293,8 +279,8 @@ export default function ClientsPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="mt-6 space-y-4">
+          <div className="rounded-2xl border border-white/10 p-4">
             <div className="text-xs uppercase tracking-widest opacity-70">Nuevo cliente</div>
 
             <label className="mt-3 block text-xs opacity-70">Nombre *</label>
@@ -338,13 +324,9 @@ export default function ClientsPage() {
             >
               Guardar cliente
             </button>
-
-            <div className="mt-3 text-xs opacity-60">
-              Tip: podés apretar <b>Enter</b> para guardar rápido.
-            </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="rounded-2xl border border-white/10 p-4">
             <div className="text-xs uppercase tracking-widest opacity-70">Buscar</div>
             <input
               value={q}
@@ -355,7 +337,7 @@ export default function ClientsPage() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="mt-6 rounded-2xl border border-white/10 p-4">
           <div className="text-xs uppercase tracking-widest opacity-70">Últimos clientes</div>
 
           {loading ? (
@@ -363,9 +345,9 @@ export default function ClientsPage() {
           ) : filtered.length === 0 ? (
             <div className="mt-3 text-sm opacity-70">No hay clientes todavía.</div>
           ) : (
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 divide-y divide-white/10 rounded-xl border border-white/10">
               {filtered.slice(0, 30).map((c) => (
-                <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <div key={c.id} className="p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-medium">
                       {c.name}
@@ -379,7 +361,7 @@ export default function ClientsPage() {
                   </div>
 
                   <div className="mt-1 text-xs opacity-70">
-                    {c.phone ? <>📞 {c.phone} • </> : null}
+                    {c.phone ? <>{c.phone} • </> : null}
                     Ref: {c.referred_by_text}
                   </div>
                 </div>
@@ -388,9 +370,8 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="mt-6 flex justify-between text-sm underline opacity-80 hover:opacity-100">
+        <div className="mt-6 text-sm underline opacity-80 hover:opacity-100">
           <Link href={returnTo || "/operaciones"}>← {returnTo ? "Volver" : "Operaciones"}</Link>
-          <Link href="/cierre">Cierre →</Link>
         </div>
       </div>
     </main>

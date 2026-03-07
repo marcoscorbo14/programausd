@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
@@ -376,7 +375,7 @@ export default function OperacionesPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+    <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
         <AppPageHeader title="Operaciones" activeTab="operaciones" />
 
@@ -414,8 +413,8 @@ export default function OperacionesPage() {
                 </div>
               ) : null}
 
-              <div className="mt-4 space-y-5 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0">
-                <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-white/10 p-4">
                   <div className="text-xs uppercase tracking-widest opacity-70">Nueva operación</div>
 
                   <label className="mt-3 block text-xs opacity-70">Tipo</label>
@@ -474,7 +473,7 @@ export default function OperacionesPage() {
                   />
 
                   {showClientMatches ? (
-                    <div id={clientListboxId} role="listbox" className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
+                    <div id={clientListboxId} role="listbox" className="mt-2 rounded-xl border border-white/10 p-2">
                       <div className="space-y-1">
                         {clientMatches.map((c) => (
                           <button
@@ -492,11 +491,7 @@ export default function OperacionesPage() {
                     </div>
                   ) : null}
 
-                  <div className="mt-2 text-xs opacity-70">
-                    {selectedClientId && casualClient && selectedClientId === casualClient.id
-                      ? "Cliente por defecto: Cliente casual."
-                      : "Si no existe, se guarda con nombre y luego podés crearlo en Clientes."}
-                  </div>
+                  <div className="mt-2 text-xs opacity-70">Si no existe, se guarda el nombre y luego podés crearlo en Clientes.</div>
 
                   <button
                     onClick={createOperation}
@@ -507,15 +502,15 @@ export default function OperacionesPage() {
                   </button>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+                <div className="rounded-xl border border-white/10 p-4">
                   <div className="text-xs uppercase tracking-widest opacity-70">Últimas 5 operaciones</div>
 
                   {ops.length === 0 ? (
                     <div className="mt-3 text-sm opacity-70">No hay operaciones para este día.</div>
                   ) : (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 divide-y divide-white/10 rounded-xl border border-white/10">
                       {ops.map((o) => (
-                        <div key={o.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div key={o.id} className="p-3">
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-sm font-medium">
                               {o.op_type === "SELL_USD" ? "VENTA" : "COMPRA"} • {fmtUSD(o.usd_amount)}
@@ -535,10 +530,7 @@ export default function OperacionesPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex justify-between">
-                <Link className="text-sm underline opacity-80 hover:opacity-100" href="/">
-                  ← Dashboard
-                </Link>
+              <div className="mt-5 flex justify-end">
                 <button
                   onClick={signOut}
                   className="text-sm rounded-xl border border-white/10 px-3 py-2 opacity-80 hover:bg-white/5"

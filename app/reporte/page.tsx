@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
 
 type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
-type BranchRow = { id: string; name: string };
 
 type DailyClosingRow = {
   id: string;
@@ -65,7 +63,6 @@ function getGainUSD(c: DailyClosingRow) {
 export default function ReportePage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
-  const [branch, setBranch] = useState<BranchRow | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   const [preset, setPreset] = useState<PresetKey>("30");
@@ -154,7 +151,6 @@ export default function ReportePage() {
 
     if (!user) {
       setEmail(null);
-      setBranch(null);
       setClosings([]);
       setLoading(false);
       return;
@@ -190,7 +186,6 @@ export default function ReportePage() {
     }
 
     const b = branches?.[0] ?? null;
-    setBranch(b);
 
     if (!b) {
       setErrMsg("No tenés sucursales creadas.");
@@ -255,12 +250,11 @@ export default function ReportePage() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setEmail(null);
-    setBranch(null);
     setClosings([]);
   };
 
   return (
-    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+    <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
         <AppPageHeader title="Reporte" activeTab="reporte" />
 
@@ -321,15 +315,11 @@ export default function ReportePage() {
             </button>
           ) : (
             <>
-              <div className="mb-3 text-xs opacity-70">
-                {email ?? "-"} • {branch?.name ?? "(sin sucursal)"}
-              </div>
-
               {errMsg ? (
                 <div role="alert" aria-live="assertive" className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{errMsg}</div>
               ) : null}
 
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+              <div className="mt-4 rounded-xl border border-white/10 p-4">
                 <div className="text-xs uppercase tracking-widest opacity-70">Resumen ({closings.length} cierres)</div>
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-white/10 p-3">
@@ -346,7 +336,7 @@ export default function ReportePage() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+              <div className="mt-4 rounded-xl border border-white/10 p-4">
                 <div className="text-xs uppercase tracking-widest opacity-70">Ganancias por día</div>
                 {chartSeries.length === 0 ? (
                   <div className="mt-2 text-sm opacity-70">Sin datos para graficar.</div>
@@ -355,7 +345,7 @@ export default function ReportePage() {
                     {fmtDateAR(chartSeries[0].date)}: <b>{fmtARS(chartSeries[0].ars)}</b>
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2">
+                  <div className="mt-3 rounded-xl border border-white/10 p-2">
                     <svg
                       viewBox="0 0 620 180"
                       className="h-40 w-full"
@@ -377,17 +367,17 @@ export default function ReportePage() {
                 )}
               </div>
 
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
+              <div className="mt-4 rounded-xl border border-white/10 p-4">
                 <div className="text-xs uppercase tracking-widest opacity-70">Cierres del período</div>
                 {closings.length === 0 ? (
                   <div className="mt-3 text-sm opacity-70">No hay cierres guardados para este rango.</div>
                 ) : (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3 divide-y divide-white/10 rounded-xl border border-white/10">
                     {closings.map((c) => {
                       const gainArs = getGainARS(c);
                       const gainUsd = getGainUSD(c);
                       return (
-                        <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div key={c.id} className="p-3">
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-medium">{fmtDateAR(c.business_date)}</div>
                             <div className="text-sm font-semibold">{isFiniteNumber(gainArs) ? fmtARS(gainArs) : "N/D"}</div>
@@ -401,11 +391,6 @@ export default function ReportePage() {
                     })}
                   </div>
                 )}
-              </div>
-
-              <div className="mt-6 flex justify-between">
-                <Link className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Operaciones</Link>
-                <Link className="text-sm underline opacity-80 hover:opacity-100" href="/cierre">Cierre →</Link>
               </div>
 
               <button

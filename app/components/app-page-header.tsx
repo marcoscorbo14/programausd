@@ -30,8 +30,8 @@ export function AppPageHeader({ title, activeTab }: AppPageHeaderProps) {
               aria-current={isActive ? "page" : undefined}
               className={
                 isActive
-                  ? "rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-100"
-                  : "rounded-lg border border-white/15 px-2 py-2 text-center text-xs hover:bg-white/10"
+                  ? "rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-100 focus-visible:outline-none"
+                  : "rounded-lg border border-white/15 px-2 py-2 text-center text-xs hover:bg-white/10 focus-visible:outline-none"
               }
             >
               {tab.label}

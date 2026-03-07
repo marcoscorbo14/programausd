@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
@@ -336,7 +335,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
   };
 
   return (
-    <main className="min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
+    <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl">
         <AppPageHeader title="Cierre del día" activeTab="cierre" />
 
@@ -362,10 +361,6 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
             </button>
           ) : (
             <>
-              <div className="mb-3 text-xs opacity-70">
-                {email ?? "-"} • {branch?.name ?? "(sin sucursal)"}
-              </div>
-
               {errMsg ? (
                 <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
                   {errMsg}
@@ -378,7 +373,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                 </div>
               ) : (
                 <>
-                  <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="mt-6 rounded-xl border border-white/10 p-4">
                     <div className="text-xs uppercase tracking-widest opacity-70">Caja final (preview)</div>
                     <div className="mt-3 grid grid-cols-2 gap-3">
                       <div className="rounded-xl border border-white/10 p-3">
@@ -395,7 +390,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-4">
+                  <div className="mt-6 rounded-xl border border-white/10 p-4">
                     <div className="text-xs uppercase tracking-widest opacity-70">Precios de referencia</div>
 
                     <div className="mt-3 grid grid-cols-2 gap-3">
@@ -412,7 +407,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                     </div>
 
                     {/* RESULTADO DEL DÍA (por moneda) */}
-<div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+<div className="mt-4 border-t border-white/10 pt-4">
   <div className="text-xs uppercase tracking-widest opacity-70">Resultado del día</div>
 
   {(!opening || !totals) ? (
@@ -452,7 +447,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
 </div>
 
 {/* VALUACIÓN (opcional, con precios) */}
-<div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+<div className="mt-4 border-t border-white/10 pt-4">
   <div className="text-xs uppercase tracking-widest opacity-70">Ganancia por valuación</div>
   {!closeCalc ? (
     <div className="mt-2 text-sm opacity-70">Completá precios válidos para ver la valuación.</div>
@@ -491,10 +486,6 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
                     ) : null}
                   </div>
 
-                  <div className="mt-6 flex justify-between">
-                    <Link className="text-sm underline opacity-80 hover:opacity-100" href="/operaciones">← Volver a Operaciones</Link>
-                    <Link className="text-sm underline opacity-80 hover:opacity-100" href="/reporte">Ir a Reporte →</Link>
-                  </div>
                 </>
               )}
 

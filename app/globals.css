@@ -24,3 +24,26 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
+
+.cc-app :is(input, select, button) {
+  min-height: 44px;
+}
+
+.cc-app :is(input, select, button, a):focus-visible {
+  outline: 2px solid color-mix(in oklab, #34d399 65%, white 35%);
+  outline-offset: 2px;
+}
+
+.cc-app :is(button, a) {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-app :is(button, a) {
+    transition: none;
+  }
+}
