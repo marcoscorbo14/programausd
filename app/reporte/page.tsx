@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -311,11 +312,38 @@ setClosings(unique);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
         <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-2 text-2xl font-semibold">Reporte</h1>
+        <h1 className="mt-1 text-2xl font-semibold">Reporte</h1>
 
-        <div className="mt-2 text-sm opacity-70">Ventana</div>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <Link
+            href="/operaciones"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Operaciones
+          </Link>
+          <Link
+            href="/clients"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Clientes
+          </Link>
+          <Link
+            href="/cierre"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Cierre
+          </Link>
+          <Link
+            href="/reporte"
+            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
+          >
+            Reporte
+          </Link>
+        </div>
+
+        <div className="mt-3 text-xs opacity-70">Ventana</div>
 
 <div className="mt-2 flex flex-wrap gap-2">
   <button
@@ -416,12 +444,8 @@ setClosings(unique);
             </button>
           ) : (
             <>
-              <div className="text-sm opacity-70">Conectado como</div>
-              <div className="mt-1 font-medium">{email}</div>
-
-              <div className="mt-4 text-sm opacity-70">Sucursal</div>
-              <div className="mt-1 rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
-                {branch?.name ?? "(sin sucursal)"}
+              <div className="mb-3 text-xs opacity-70">
+                {email ?? "-"} • {branch?.name ?? "(sin sucursal)"}
               </div>
 
               {errMsg ? (

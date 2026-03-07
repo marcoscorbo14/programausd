@@ -217,7 +217,7 @@ export default function OperacionesPage() {
         const casual = rows.find((c) => clientDisplayName(c).toLowerCase() === "cliente casual");
         if (casual) {
           setSelectedClientId(casual.id);
-          setClientInput(clientDisplayName(casual));
+          setClientInput("");
         }
       }
     }
@@ -351,7 +351,7 @@ export default function OperacionesPage() {
     setFee("0");
     if (casualClient) {
       setSelectedClientId(casualClient.id);
-      setClientInput(clientDisplayName(casualClient));
+      setClientInput("");
     } else {
       setSelectedClientId("");
       setClientInput("");
@@ -487,11 +487,6 @@ export default function OperacionesPage() {
                   onChange={(e) => {
                     setClientInput(e.target.value);
                     setSelectedClientId("");
-                  }}
-                  onBlur={() => {
-                    if (!clientInput.trim() && casualClient) {
-                      selectClient(casualClient);
-                    }
                   }}
                   className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
                   placeholder="Escribí nombre, teléfono o referencia"

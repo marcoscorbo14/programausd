@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -266,11 +267,38 @@ export default function ClientsPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
         <div className="text-xs uppercase tracking-widest opacity-70">Control Cambio</div>
-        <h1 className="mt-2 text-2xl font-semibold">Clientes</h1>
+        <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
 
-        <div className="mt-2 text-sm opacity-70">
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <Link
+            href="/operaciones"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Operaciones
+          </Link>
+          <Link
+            href="/clients"
+            className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-xs text-emerald-100"
+          >
+            Clientes
+          </Link>
+          <Link
+            href="/cierre"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Cierre
+          </Link>
+          <Link
+            href="/reporte"
+            className="rounded-lg border border-white/15 px-2 py-1 text-center text-xs hover:bg-white/10"
+          >
+            Reporte
+          </Link>
+        </div>
+
+        <div className="mt-3 text-xs opacity-70">
           Conectado como <span className="font-medium">{email ?? "-"}</span>
         </div>
 
