@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type TabKey = "operaciones" | "clients" | "cierre" | "reporte";
+type TabKey = "operaciones" | "clients" | "cierre" | "reporte" | "admin";
 
 type AppPageHeaderProps = {
   title: string;
@@ -12,6 +12,7 @@ const tabs: Array<{ key: TabKey; href: string; label: string }> = [
   { key: "clients", href: "/clients", label: "Clientes" },
   { key: "cierre", href: "/cierre", label: "Cierre" },
   { key: "reporte", href: "/reporte", label: "Reporte" },
+  { key: "admin", href: "/admin", label: "Admin" },
 ];
 
 export function AppPageHeader({ title, activeTab }: AppPageHeaderProps) {
@@ -20,7 +21,7 @@ export function AppPageHeader({ title, activeTab }: AppPageHeaderProps) {
       <div className="text-xs uppercase tracking-widest text-white/65">Control Cambio</div>
       <h1 className="mt-1 text-2xl font-semibold sm:text-[2rem]">{title}</h1>
 
-      <nav aria-label="Secciones" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <nav aria-label="Secciones" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
           return (

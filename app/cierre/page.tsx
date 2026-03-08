@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
+import { canCorrectDay, getProfileWithRole, type AppRole } from "@/lib/security";
 
-type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
 
 type DailyOpeningRow = {
@@ -64,6 +64,7 @@ export default function CierrePage() {
   const [email, setEmail] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [branch, setBranch] = useState<BranchRow | null>(null);
+  const [role, setRole] = useState<AppRole>("operator");
 
   const [opening, setOpening] = useState<DailyOpeningRow | null>(null);
   const [ops, setOps] = useState<OperationRow[]>([]);
@@ -74,6 +75,7 @@ export default function CierrePage() {
 
   const [savingClose, setSavingClose] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const canCorrect = canCorrectDay(role);
 
   const totals = useMemo(() => {
     if (!opening) return null;
@@ -148,14 +150,10 @@ export default function CierrePage() {
 
     setEmail(user.email ?? null);
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("id,email,tenant_id")
-      .eq("id", user.id)
-      .single<ProfileRow>();
+    const profile = await getProfileWithRole(user.id);
+    setRole(profile.role);
 
-    if (profileErr || !profile?.tenant_id) {
-      console.error(profileErr);
+    if (profile.error || !profile.tenant_id) {
       setErrMsg("No pude leer tu perfil (profiles).");
       setLoading(false);
       return;
@@ -334,6 +332,24 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
     setClosingSaved(data);
   };
 
+  const reopenDay = async () => {
+    if (!tenantId || !branch?.id || !canCorrect) return;
+    const ok = window.confirm(`¿Reabrir el día ${businessDate}?`);
+    if (!ok) return;
+    const { error } = await supabase
+      .from("daily_closings")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("branch_id", branch.id)
+      .eq("business_date", businessDate);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude reabrir el día.");
+      return;
+    }
+    setClosingSaved(null);
+  };
+
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl">
@@ -474,6 +490,15 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
               {closingSaved ? (
   <div role="status" aria-live="polite" className="mt-3 text-xs opacity-70">
     🔒 Día cerrado. Para corregir operaciones necesitás <b>Reabrir</b> (solo Supervisor/Admin).
+    {canCorrect ? (
+      <button
+        type="button"
+        onClick={reopenDay}
+        className="ml-2 rounded-lg border border-yellow-300/30 px-2 py-1 text-[11px] hover:bg-yellow-500/20"
+      >
+        Reabrir día
+      </button>
+    ) : null}
   </div>
 ) : null}
                     {closingSaved ? (

@@ -3,9 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
+import { canCorrectDay, getProfileWithRole, type AppRole } from "@/lib/security";
 
-type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
 type BranchRow = { id: string; name: string };
+type DailyOpeningRow = {
+  id: string;
+  business_date: string;
+  ars_open: number;
+  usd_open: number;
+  branch_id: string | null;
+};
 
 type OperationRow = {
   id: string;
@@ -74,9 +81,19 @@ export default function OperacionesPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [branch, setBranch] = useState<BranchRow | null>(null);
+  const [role, setRole] = useState<AppRole>("operator");
+  const [roleColumnAvailable, setRoleColumnAvailable] = useState(true);
+  const [needsBusinessSetup, setNeedsBusinessSetup] = useState(false);
+  const [businessNameDraft, setBusinessNameDraft] = useState("");
+  const [savingBusinessName, setSavingBusinessName] = useState(false);
 
   const [ops, setOps] = useState<OperationRow[]>([]);
+  const [allDayOps, setAllDayOps] = useState<OperationRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [opening, setOpening] = useState<DailyOpeningRow | null>(null);
+  const [openingArsInput, setOpeningArsInput] = useState("");
+  const [openingUsdInput, setOpeningUsdInput] = useState("");
+  const [savingOpening, setSavingOpening] = useState(false);
 
   const [clientInput, setClientInput] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -88,6 +105,9 @@ export default function OperacionesPage() {
   const [savingOp, setSavingOp] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const clientListboxId = "client-suggestions-listbox";
+
+  const canCorrect = useMemo(() => canCorrectDay(role), [role]);
+  const hasOpening = !!opening;
 
   const casualClient = useMemo(
     () => clients.find((c) => clientDisplayName(c).toLowerCase() === "cliente casual") ?? null,
@@ -126,6 +146,26 @@ export default function OperacionesPage() {
     return u * p;
   }, [usdAmount, price]);
 
+  const cashLive = useMemo(() => {
+    if (!opening) return null;
+    let ars = Number(opening.ars_open ?? 0);
+    let usd = Number(opening.usd_open ?? 0);
+    let fees = 0;
+    for (const o of allDayOps) {
+      const feeValue = Number(o.fee_ars ?? 0);
+      fees += feeValue;
+      if (o.op_type === "SELL_USD") {
+        ars += Number(o.ars_amount ?? 0);
+        usd -= Number(o.usd_amount ?? 0);
+      } else {
+        ars -= Number(o.ars_amount ?? 0);
+        usd += Number(o.usd_amount ?? 0);
+      }
+      ars -= feeValue;
+    }
+    return { ars, usd, fees };
+  }, [opening, allDayOps]);
+
   const loadAll = async () => {
     setLoading(true);
     setErrMsg(null);
@@ -138,21 +178,20 @@ export default function OperacionesPage() {
       setTenantId(null);
       setBranch(null);
       setOps([]);
+      setAllDayOps([]);
       setClients([]);
+      setOpening(null);
       setLoading(false);
       return;
     }
 
     setEmail(user.email ?? null);
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("id,email,tenant_id")
-      .eq("id", user.id)
-      .single<ProfileRow>();
+    const profile = await getProfileWithRole(user.id);
+    setRole(profile.role);
+    setRoleColumnAvailable(profile.roleColumnAvailable);
 
-    if (profileErr || !profile?.tenant_id) {
-      console.error(profileErr);
+    if (profile.error || !profile.tenant_id) {
       setErrMsg("No pude leer tu perfil (profiles).");
       setLoading(false);
       return;
@@ -226,6 +265,27 @@ export default function OperacionesPage() {
     const start = `${businessDate}T00:00:00-03:00`;
     const end = `${businessDate}T23:59:59-03:00`;
 
+    const { data: openingRow, error: openingErr } = await supabase
+      .from("daily_openings")
+      .select("id,business_date,ars_open,usd_open,branch_id")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("branch_id", b.id)
+      .eq("business_date", businessDate)
+      .maybeSingle<DailyOpeningRow>();
+
+    if (openingErr) {
+      console.error(openingErr);
+      setErrMsg("No pude leer caja inicial (daily_openings).");
+      setLoading(false);
+      return;
+    }
+
+    setOpening(openingRow ?? null);
+    if (!openingRow) {
+      setOpeningArsInput("");
+      setOpeningUsdInput("");
+    }
+
     const { data: opRows, error: opsErr } = await supabase
       .from("operations")
       .select("id,op_time,op_type,usd_amount,price_ars_per_usd,ars_amount,fee_ars,client_id,client_name_snapshot")
@@ -235,7 +295,7 @@ export default function OperacionesPage() {
       .gte("op_time", start)
       .lte("op_time", end)
       .order("op_time", { ascending: false })
-      .limit(5);
+      .limit(500);
 
     if (opsErr) {
       console.error(opsErr);
@@ -244,7 +304,13 @@ export default function OperacionesPage() {
       return;
     }
 
-    setOps((opRows ?? []) as OperationRow[]);
+    const allOps = (opRows ?? []) as OperationRow[];
+    setAllDayOps(allOps);
+    setOps(allOps.slice(0, 5));
+    const defaultBusinessName = (b?.name || "").trim().toLowerCase();
+    const needsSetup = !!b && (!b.name?.trim() || defaultBusinessName === "sucursal principal");
+    setNeedsBusinessSetup(needsSetup);
+    setBusinessNameDraft(needsSetup ? "" : b?.name ?? "");
     setLoading(false);
   };
 
@@ -267,7 +333,9 @@ export default function OperacionesPage() {
     setTenantId(null);
     setBranch(null);
     setOps([]);
+    setAllDayOps([]);
     setClients([]);
+    setOpening(null);
   };
 
   const selectClient = (client: ClientRow) => {
@@ -278,6 +346,10 @@ export default function OperacionesPage() {
   const createOperation = async () => {
     if (dayClosed) {
       setErrMsg("Día cerrado. No podés cargar operaciones.");
+      return;
+    }
+    if (!opening) {
+      setErrMsg("Primero guardá la caja inicial del día.");
       return;
     }
     if (!tenantId || !branch?.id) return;
@@ -359,6 +431,7 @@ export default function OperacionesPage() {
     }
 
     setOps((prev) => [data, ...prev].slice(0, 5));
+    setAllDayOps((prev) => [data, ...prev]);
 
     if (!finalClientId && snapshot) {
       const wantsToAddClient = window.confirm(
@@ -372,6 +445,107 @@ export default function OperacionesPage() {
         window.location.href = url;
       }
     }
+  };
+
+  const saveOpening = async () => {
+    if (!tenantId || !branch?.id) return;
+    if (dayClosed) {
+      setErrMsg("No podés guardar caja inicial en un día cerrado.");
+      return;
+    }
+    const arsOpen = num(openingArsInput);
+    const usdOpen = num(openingUsdInput);
+    if (!Number.isFinite(arsOpen) || arsOpen < 0) {
+      setErrMsg("ARS inicial inválido.");
+      return;
+    }
+    if (!Number.isFinite(usdOpen) || usdOpen < 0) {
+      setErrMsg("USD inicial inválido.");
+      return;
+    }
+
+    setSavingOpening(true);
+    setErrMsg(null);
+    const { data, error } = await supabase
+      .from("daily_openings")
+      .upsert(
+        {
+          tenant_id: tenantId,
+          branch_id: branch.id,
+          business_date: businessDate,
+          ars_open: arsOpen,
+          usd_open: usdOpen,
+        },
+        { onConflict: "tenant_id,branch_id,business_date" }
+      )
+      .select("id,business_date,ars_open,usd_open,branch_id")
+      .single<DailyOpeningRow>();
+    setSavingOpening(false);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude guardar la caja inicial.");
+      return;
+    }
+    setOpening(data);
+  };
+
+  const saveBusinessName = async () => {
+    if (!tenantId || !branch?.id) return;
+    const trimmed = businessNameDraft.trim();
+    if (!trimmed) {
+      setErrMsg("Ingresá el nombre del negocio.");
+      return;
+    }
+    setSavingBusinessName(true);
+    const { error } = await supabase
+      .from("branches")
+      .update({ name: trimmed })
+      .eq("tenant_id", tenantId)
+      .eq("id", branch.id);
+    setSavingBusinessName(false);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude guardar el nombre del negocio.");
+      return;
+    }
+    setBranch({ ...branch, name: trimmed });
+    setNeedsBusinessSetup(false);
+  };
+
+  const voidOperation = async (opId: string) => {
+    if (!canCorrect || !tenantId || !branch?.id) return;
+    const ok = window.confirm("¿Anular esta operación?");
+    if (!ok) return;
+    const { error } = await supabase
+      .from("operations")
+      .update({ is_void: true })
+      .eq("tenant_id", tenantId)
+      .eq("branch_id", branch.id)
+      .eq("id", opId);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude anular la operación.");
+      return;
+    }
+    setOps((prev) => prev.filter((o) => o.id !== opId));
+  };
+
+  const reopenDay = async () => {
+    if (!canCorrect || !tenantId || !branch?.id) return;
+    const ok = window.confirm(`¿Reabrir el día ${businessDate}? Se desbloquearán operaciones y cierre.`);
+    if (!ok) return;
+    const { error } = await supabase
+      .from("daily_closings")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("branch_id", branch.id)
+      .eq("business_date", businessDate);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude reabrir el día.");
+      return;
+    }
+    setDayClosed(false);
   };
 
   return (
@@ -401,6 +575,12 @@ export default function OperacionesPage() {
             </button>
           ) : (
             <>
+              {!roleColumnAvailable ? (
+                <div className="mb-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs">
+                  Roles no configurados en DB. Se usará modo compatibilidad hasta agregar columna <b>profiles.role</b>.
+                </div>
+              ) : null}
+
               {errMsg ? (
                 <div role="alert" aria-live="assertive" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">
                   {errMsg}
@@ -410,8 +590,91 @@ export default function OperacionesPage() {
               {dayClosed ? (
                 <div role="status" aria-live="polite" className="mb-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs">
                   Día cerrado para {businessDate}. No se pueden cargar operaciones.
+                  {canCorrect ? (
+                    <button
+                      onClick={reopenDay}
+                      className="ml-2 rounded-lg border border-yellow-300/30 px-2 py-1 text-[11px] hover:bg-yellow-500/20"
+                    >
+                      Reabrir día
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
+
+              {needsBusinessSetup ? (
+                <div className="mb-3 rounded-xl border border-white/10 p-4">
+                  <div className="text-sm font-medium">Configuración inicial</div>
+                  <div className="mt-1 text-xs opacity-70">
+                    Definí el nombre del negocio para continuar.
+                  </div>
+                  <input
+                    value={businessNameDraft}
+                    onChange={(e) => setBusinessNameDraft(e.target.value)}
+                    className="mt-3 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                    placeholder="Ej: Control Cambio Córdoba"
+                  />
+                  <button
+                    onClick={saveBusinessName}
+                    disabled={savingBusinessName}
+                    className="mt-3 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
+                  >
+                    {savingBusinessName ? "Guardando..." : "Guardar nombre del negocio"}
+                  </button>
+                </div>
+              ) : null}
+
+              {!hasOpening ? (
+                <div className="mb-3 rounded-xl border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-widest opacity-70">Caja inicial del día</div>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs opacity-70">ARS inicial</label>
+                      <input
+                        value={openingArsInput}
+                        onChange={(e) => setOpeningArsInput(e.target.value)}
+                        inputMode="decimal"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                        placeholder="Ej: 500000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs opacity-70">USD inicial</label>
+                      <input
+                        value={openingUsdInput}
+                        onChange={(e) => setOpeningUsdInput(e.target.value)}
+                        inputMode="decimal"
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                        placeholder="Ej: 10000"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={saveOpening}
+                    disabled={savingOpening || dayClosed || needsBusinessSetup}
+                    className="mt-3 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
+                  >
+                    {savingOpening ? "Guardando..." : "Guardar caja inicial"}
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-3 rounded-xl border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-widest opacity-70">Caja en vivo</div>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-white/10 p-3">
+                      <div className="text-xs opacity-70">ARS</div>
+                      <div className="mt-1 text-lg font-semibold">{fmtARS(cashLive?.ars ?? 0, 2)}</div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 p-3">
+                      <div className="text-xs opacity-70">USD</div>
+                      <div className="mt-1 text-lg font-semibold">{fmtUSD(cashLive?.usd ?? 0, 2)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs opacity-70">
+                    Arranque: <b>{fmtARS(opening.ars_open, 2)}</b> / <b>{fmtUSD(opening.usd_open, 2)}</b> •
+                    Fees: <b>{fmtARS(cashLive?.fees ?? 0, 2)}</b>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 space-y-4">
                 <div className="rounded-xl border border-white/10 p-4">
@@ -495,7 +758,7 @@ export default function OperacionesPage() {
 
                   <button
                     onClick={createOperation}
-                    disabled={savingOp || dayClosed}
+                    disabled={savingOp || dayClosed || needsBusinessSetup || !hasOpening}
                     className="mt-4 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
                   >
                     {savingOp ? "Guardando..." : "Guardar operación"}
@@ -522,6 +785,17 @@ export default function OperacionesPage() {
                           </div>
                           {o.client_name_snapshot ? (
                             <div className="mt-1 text-xs opacity-70">Cliente: {o.client_name_snapshot}</div>
+                          ) : null}
+                          {canCorrect ? (
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() => voidOperation(o.id)}
+                                className="rounded-lg border border-red-400/30 px-2 py-1 text-[11px] text-red-100 hover:bg-red-500/20"
+                              >
+                                Anular operación
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                       ))}
