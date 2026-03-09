@@ -11,6 +11,13 @@ type ProfileWithRoleRow = {
   role: string | null;
 };
 
+type TeamMembershipRow = {
+  tenant_id: string;
+  email: string;
+  role: string | null;
+  is_active: boolean | null;
+};
+
 type ProfileBaseRow = {
   id: string;
   email: string | null;
@@ -33,6 +40,10 @@ export function canCorrectDay(role: AppRole) {
   return role === "owner" || role === "admin" || role === "supervisor";
 }
 
+export function canViewReports(role: AppRole) {
+  return role === "owner" || role === "admin" || role === "supervisor";
+}
+
 export async function getProfileWithRole(userId: string): Promise<{
   id: string;
   email: string | null;
@@ -48,11 +59,54 @@ export async function getProfileWithRole(userId: string): Promise<{
     .single<ProfileWithRoleRow>();
 
   if (!withRole.error && withRole.data) {
+    // Alta previa por email: si el perfil existe pero todavía no tiene tenant,
+    // intentamos vincularlo automáticamente desde team_memberships.
+    if (!withRole.data.tenant_id && withRole.data.email) {
+      const membership = await supabase
+        .from("team_memberships")
+        .select("tenant_id,email,role,is_active")
+        .eq("email", withRole.data.email.toLowerCase())
+        .eq("is_active", true)
+        .maybeSingle<TeamMembershipRow>();
+
+      if (!membership.error && membership.data?.tenant_id) {
+        const claimRole = normalizeRole(membership.data.role);
+        const claim = await supabase
+          .from("profiles")
+          .update({ tenant_id: membership.data.tenant_id, role: claimRole })
+          .eq("id", userId);
+        if (!claim.error) {
+          withRole.data.tenant_id = membership.data.tenant_id;
+          withRole.data.role = claimRole;
+        }
+      }
+    }
+
+    let normalized = normalizeRole(withRole.data.role);
+
+    // Reparación automática: si quedó como operator pero es el único usuario del tenant,
+    // lo promovemos a owner para evitar bloqueo de administración inicial.
+    if (normalized === "operator" && withRole.data.tenant_id) {
+      const onlyUserCheck = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", withRole.data.tenant_id);
+      const count = onlyUserCheck.count ?? 0;
+      if (!onlyUserCheck.error && count <= 1) {
+        const promote = await supabase
+          .from("profiles")
+          .update({ role: "owner" })
+          .eq("id", userId)
+          .eq("tenant_id", withRole.data.tenant_id);
+        if (!promote.error) normalized = "owner";
+      }
+    }
+
     return {
       id: withRole.data.id,
       email: withRole.data.email,
       tenant_id: withRole.data.tenant_id,
-      role: normalizeRole(withRole.data.role),
+      role: normalized,
       roleColumnAvailable: true,
       error: null,
     };

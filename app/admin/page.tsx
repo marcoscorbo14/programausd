@@ -8,6 +8,13 @@ import { canManageTeam, getProfileWithRole, normalizeRole, type AppRole } from "
 type BranchRow = { id: string; name: string };
 type MemberWithRoleRow = { id: string; email: string | null; role: string | null };
 type MemberBaseRow = { id: string; email: string | null };
+type TeamMembershipRow = {
+  id: string;
+  tenant_id: string;
+  email: string;
+  role: string | null;
+  is_active: boolean | null;
+};
 
 type Member = {
   id: string;
@@ -27,6 +34,10 @@ export default function AdminPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [savingBusinessName, setSavingBusinessName] = useState(false);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+  const [pendingMembers, setPendingMembers] = useState<TeamMembershipRow[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<AppRole>("operator");
+  const [savingInvite, setSavingInvite] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [roleColumnAvailable, setRoleColumnAvailable] = useState(true);
@@ -96,6 +107,15 @@ export default function AdminPage() {
           setMembers(rows.map((m) => ({ id: m.id, email: m.email, role: "operator" })));
         }
       }
+
+      const pending = await supabase
+        .from("team_memberships")
+        .select("id,tenant_id,email,role,is_active")
+        .eq("tenant_id", profile.tenant_id)
+        .order("created_at", { ascending: false });
+      if (!pending.error) {
+        setPendingMembers((pending.data ?? []) as TeamMembershipRow[]);
+      }
     }
 
     setLoading(false);
@@ -163,10 +183,42 @@ export default function AdminPage() {
     setOkMsg("Rol actualizado.");
   };
 
+  const addPendingMember = async () => {
+    if (!tenantId || !canManageTeam(role)) return;
+    const emailNorm = inviteEmail.trim().toLowerCase();
+    if (!emailNorm.includes("@")) {
+      setErrMsg("Ingresá un email válido.");
+      return;
+    }
+    setSavingInvite(true);
+    setErrMsg(null);
+    const { error } = await supabase
+      .from("team_memberships")
+      .upsert(
+        { tenant_id: tenantId, email: emailNorm, role: inviteRole, is_active: true },
+        { onConflict: "tenant_id,email" }
+      );
+    setSavingInvite(false);
+    if (error) {
+      console.error(error);
+      setErrMsg("No pude guardar operador por email. Ejecutá la migración de team_memberships.");
+      return;
+    }
+    setInviteEmail("");
+    setInviteRole("operator");
+    setOkMsg("Operador precargado. Cuando inicie sesión quedará vinculado.");
+    const pending = await supabase
+      .from("team_memberships")
+      .select("id,tenant_id,email,role,is_active")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+    if (!pending.error) setPendingMembers((pending.data ?? []) as TeamMembershipRow[]);
+  };
+
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl">
-        <AppPageHeader title="Admin" activeTab="admin" />
+        <AppPageHeader title="Configuración" activeTab="admin" role={role} />
 
         <div className="mt-4">
           {loading ? (
@@ -209,7 +261,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-4 rounded-xl border border-white/10 p-4">
-                <div className="text-xs uppercase tracking-widest opacity-70">Usuarios y roles</div>
+                <div className="text-xs uppercase tracking-widest opacity-70">Equipo y permisos</div>
                 {!canManageTeam(role) ? (
                   <div className="mt-3 text-sm opacity-70">
                     Tu rol actual es <b>{role}</b>. Solo owner/admin pueden editar roles.
@@ -239,6 +291,48 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
+
+                {canManageTeam(role) ? (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="text-xs uppercase tracking-widest opacity-70">Alta previa por email</div>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
+                      <input
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        className="w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                        placeholder="pedrito@gmail.com"
+                      />
+                      <select
+                        value={inviteRole}
+                        onChange={(e) => setInviteRole(e.target.value as AppRole)}
+                        className="w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
+                      >
+                        {ROLE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={addPendingMember}
+                      disabled={savingInvite}
+                      className="mt-2 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
+                    >
+                      {savingInvite ? "Guardando..." : "Guardar operador por email"}
+                    </button>
+
+                    {pendingMembers.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {pendingMembers.map((p) => (
+                          <div key={p.id} className="rounded-xl border border-white/10 p-2 text-xs">
+                            {p.email} • rol: <b>{p.role ?? "operator"}</b>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <button

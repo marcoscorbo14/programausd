@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
-
-type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
+import { canViewReports, getProfileWithRole, type AppRole } from "@/lib/security";
 
 type DailyClosingRow = {
   id: string;
@@ -63,6 +62,7 @@ function getGainUSD(c: DailyClosingRow) {
 export default function ReportePage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
+  const [role, setRole] = useState<AppRole>("operator");
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   const [preset, setPreset] = useState<PresetKey>("30");
@@ -158,15 +158,16 @@ export default function ReportePage() {
 
     setEmail(user.email ?? null);
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("id,email,tenant_id")
-      .eq("id", user.id)
-      .single<ProfileRow>();
-
-    if (profileErr || !profile?.tenant_id) {
-      console.error(profileErr);
+    const profile = await getProfileWithRole(user.id);
+    setRole(profile.role);
+    if (profile.error || !profile.tenant_id) {
       setErrMsg("No pude leer tu perfil (profiles).");
+      setLoading(false);
+      return;
+    }
+    if (!canViewReports(profile.role)) {
+      setErrMsg("No tenés permisos para ver reportes.");
+      setClosings([]);
       setLoading(false);
       return;
     }
@@ -256,7 +257,7 @@ export default function ReportePage() {
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
-        <AppPageHeader title="Reporte" activeTab="reporte" />
+        <AppPageHeader title="Reporte" activeTab="reporte" role={role} />
 
         <div className="mt-3 text-xs opacity-70">Filtro preestablecido</div>
         <select

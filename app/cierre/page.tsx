@@ -353,7 +353,7 @@ const end = new Date(`${businessDate}T23:59:59-03:00`).toISOString();
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl">
-        <AppPageHeader title="Cierre del día" activeTab="cierre" />
+        <AppPageHeader title="Cierre del día" activeTab="cierre" role={role} />
 
         <div className="mt-3 flex items-center justify-between gap-3 text-xs opacity-70">
           <span>Día operativo</span>

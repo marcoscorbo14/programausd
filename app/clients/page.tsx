@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
-
-type ProfileRow = { id: string; email: string | null; tenant_id: string | null };
+import { getProfileWithRole, type AppRole } from "@/lib/security";
 
 type ClientRow = {
   id: string;
@@ -33,6 +32,7 @@ export default function ClientsPage() {
   const refRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<AppRole>("operator");
   const [tenantId, setTenantId] = useState<string | null>(null);
 
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -88,14 +88,10 @@ export default function ClientsPage() {
       return;
     }
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("id,email,tenant_id")
-      .eq("id", user.id)
-      .single<ProfileRow>();
+    const profile = await getProfileWithRole(user.id);
+    setRole(profile.role);
 
-    if (profileErr || !profile?.tenant_id) {
-      console.error(profileErr);
+    if (profile.error || !profile.tenant_id) {
       setErrMsg("No pude leer tu perfil (profiles).");
       setTenantId(null);
       setClients([]);
@@ -265,7 +261,7 @@ export default function ClientsPage() {
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
-        <AppPageHeader title="Clientes" activeTab="clients" />
+        <AppPageHeader title="Clientes" activeTab="clients" role={role} />
 
         {errMsg ? (
           <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">

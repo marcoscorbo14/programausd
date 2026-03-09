@@ -551,7 +551,7 @@ export default function OperacionesPage() {
   return (
     <main className="cc-app min-h-screen flex items-start justify-center px-3 py-4 sm:items-center sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm sm:p-5 md:max-w-2xl lg:max-w-3xl">
-        <AppPageHeader title="Operaciones" activeTab="operaciones" />
+        <AppPageHeader title="Operaciones" activeTab="operaciones" role={role} />
 
         <div className="mt-3 flex items-center justify-between gap-3 text-xs opacity-70">
           <span>Día operativo</span>
