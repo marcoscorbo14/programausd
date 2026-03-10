@@ -142,6 +142,10 @@ export default function AdminPage() {
 
   const saveBusiness = async () => {
     if (!tenantId || !branch?.id) return;
+    if (!canManageTeam(role)) {
+      setErrMsg("Solo owner/admin puede modificar el nombre del negocio.");
+      return;
+    }
     const trimmed = businessName.trim();
     if (!trimmed) {
       setErrMsg("Ingresá un nombre válido.");
@@ -248,16 +252,20 @@ export default function AdminPage() {
                 <input
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
+                  disabled={!canManageTeam(role)}
                   className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
                   placeholder="Ej: Control Cambio Córdoba"
                 />
                 <button
                   onClick={saveBusiness}
-                  disabled={savingBusinessName}
+                  disabled={savingBusinessName || !canManageTeam(role)}
                   className="mt-3 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
                 >
                   {savingBusinessName ? "Guardando..." : "Guardar nombre"}
                 </button>
+                {!canManageTeam(role) ? (
+                  <div className="mt-2 text-xs opacity-70">Solo owner/admin puede editar este dato.</div>
+                ) : null}
               </div>
 
               <div className="mt-4 rounded-xl border border-white/10 p-4">

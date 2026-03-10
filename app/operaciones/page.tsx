@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
@@ -83,17 +85,12 @@ export default function OperacionesPage() {
   const [branch, setBranch] = useState<BranchRow | null>(null);
   const [role, setRole] = useState<AppRole>("operator");
   const [roleColumnAvailable, setRoleColumnAvailable] = useState(true);
-  const [needsBusinessSetup, setNeedsBusinessSetup] = useState(false);
-  const [businessNameDraft, setBusinessNameDraft] = useState("");
-  const [savingBusinessName, setSavingBusinessName] = useState(false);
+  const router = useRouter();
 
   const [ops, setOps] = useState<OperationRow[]>([]);
   const [allDayOps, setAllDayOps] = useState<OperationRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [opening, setOpening] = useState<DailyOpeningRow | null>(null);
-  const [openingArsInput, setOpeningArsInput] = useState("");
-  const [openingUsdInput, setOpeningUsdInput] = useState("");
-  const [savingOpening, setSavingOpening] = useState(false);
 
   const [clientInput, setClientInput] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -281,10 +278,6 @@ export default function OperacionesPage() {
     }
 
     setOpening(openingRow ?? null);
-    if (!openingRow) {
-      setOpeningArsInput("");
-      setOpeningUsdInput("");
-    }
 
     const { data: opRows, error: opsErr } = await supabase
       .from("operations")
@@ -309,8 +302,9 @@ export default function OperacionesPage() {
     setOps(allOps.slice(0, 5));
     const defaultBusinessName = (b?.name || "").trim().toLowerCase();
     const needsSetup = !!b && (!b.name?.trim() || defaultBusinessName === "sucursal principal");
-    setNeedsBusinessSetup(needsSetup);
-    setBusinessNameDraft(needsSetup ? "" : b?.name ?? "");
+    if (needsSetup || !openingRow) {
+      router.replace(`/inicio-dia?date=${encodeURIComponent(businessDate)}`);
+    }
     setLoading(false);
   };
 
@@ -447,71 +441,6 @@ export default function OperacionesPage() {
     }
   };
 
-  const saveOpening = async () => {
-    if (!tenantId || !branch?.id) return;
-    if (dayClosed) {
-      setErrMsg("No podés guardar caja inicial en un día cerrado.");
-      return;
-    }
-    const arsOpen = num(openingArsInput);
-    const usdOpen = num(openingUsdInput);
-    if (!Number.isFinite(arsOpen) || arsOpen < 0) {
-      setErrMsg("ARS inicial inválido.");
-      return;
-    }
-    if (!Number.isFinite(usdOpen) || usdOpen < 0) {
-      setErrMsg("USD inicial inválido.");
-      return;
-    }
-
-    setSavingOpening(true);
-    setErrMsg(null);
-    const { data, error } = await supabase
-      .from("daily_openings")
-      .upsert(
-        {
-          tenant_id: tenantId,
-          branch_id: branch.id,
-          business_date: businessDate,
-          ars_open: arsOpen,
-          usd_open: usdOpen,
-        },
-        { onConflict: "tenant_id,branch_id,business_date" }
-      )
-      .select("id,business_date,ars_open,usd_open,branch_id")
-      .single<DailyOpeningRow>();
-    setSavingOpening(false);
-    if (error) {
-      console.error(error);
-      setErrMsg("No pude guardar la caja inicial.");
-      return;
-    }
-    setOpening(data);
-  };
-
-  const saveBusinessName = async () => {
-    if (!tenantId || !branch?.id) return;
-    const trimmed = businessNameDraft.trim();
-    if (!trimmed) {
-      setErrMsg("Ingresá el nombre del negocio.");
-      return;
-    }
-    setSavingBusinessName(true);
-    const { error } = await supabase
-      .from("branches")
-      .update({ name: trimmed })
-      .eq("tenant_id", tenantId)
-      .eq("id", branch.id);
-    setSavingBusinessName(false);
-    if (error) {
-      console.error(error);
-      setErrMsg("No pude guardar el nombre del negocio.");
-      return;
-    }
-    setBranch({ ...branch, name: trimmed });
-    setNeedsBusinessSetup(false);
-  };
-
   const voidOperation = async (opId: string) => {
     if (!canCorrect || !tenantId || !branch?.id) return;
     const ok = window.confirm("¿Anular esta operación?");
@@ -601,80 +530,34 @@ export default function OperacionesPage() {
                 </div>
               ) : null}
 
-              {needsBusinessSetup ? (
-                <div className="mb-3 rounded-xl border border-white/10 p-4">
-                  <div className="text-sm font-medium">Configuración inicial</div>
-                  <div className="mt-1 text-xs opacity-70">
-                    Definí el nombre del negocio para continuar.
-                  </div>
-                  <input
-                    value={businessNameDraft}
-                    onChange={(e) => setBusinessNameDraft(e.target.value)}
-                    className="mt-3 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                    placeholder="Ej: Control Cambio Córdoba"
-                  />
-                  <button
-                    onClick={saveBusinessName}
-                    disabled={savingBusinessName}
-                    className="mt-3 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
-                  >
-                    {savingBusinessName ? "Guardando..." : "Guardar nombre del negocio"}
-                  </button>
-                </div>
-              ) : null}
-
-              {!hasOpening ? (
-                <div className="mb-3 rounded-xl border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-widest opacity-70">Caja inicial del día</div>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs opacity-70">ARS inicial</label>
-                      <input
-                        value={openingArsInput}
-                        onChange={(e) => setOpeningArsInput(e.target.value)}
-                        inputMode="decimal"
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                        placeholder="Ej: 500000"
-                      />
+              <div className="mb-3 rounded-xl border border-white/10 p-4">
+                <div className="text-xs uppercase tracking-widest opacity-70">Caja en vivo</div>
+                {hasOpening ? (
+                  <>
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-white/10 p-3">
+                        <div className="text-xs opacity-70">ARS</div>
+                        <div className="mt-1 text-lg font-semibold">{fmtARS(cashLive?.ars ?? 0, 2)}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 p-3">
+                        <div className="text-xs opacity-70">USD</div>
+                        <div className="mt-1 text-lg font-semibold">{fmtUSD(cashLive?.usd ?? 0, 2)}</div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs opacity-70">USD inicial</label>
-                      <input
-                        value={openingUsdInput}
-                        onChange={(e) => setOpeningUsdInput(e.target.value)}
-                        inputMode="decimal"
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-3 py-2 outline-none"
-                        placeholder="Ej: 10000"
-                      />
+                    <div className="mt-2 text-xs opacity-70">
+                      Arranque: <b>{fmtARS(opening.ars_open, 2)}</b> / <b>{fmtUSD(opening.usd_open, 2)}</b> • Fees:{" "}
+                      <b>{fmtARS(cashLive?.fees ?? 0, 2)}</b>
                     </div>
-                  </div>
-                  <button
-                    onClick={saveOpening}
-                    disabled={savingOpening || dayClosed || needsBusinessSetup}
-                    className="mt-3 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
-                  >
-                    {savingOpening ? "Guardando..." : "Guardar caja inicial"}
-                  </button>
-                </div>
-              ) : (
-                <div className="mb-3 rounded-xl border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-widest opacity-70">Caja en vivo</div>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-white/10 p-3">
-                      <div className="text-xs opacity-70">ARS</div>
-                      <div className="mt-1 text-lg font-semibold">{fmtARS(cashLive?.ars ?? 0, 2)}</div>
-                    </div>
-                    <div className="rounded-xl border border-white/10 p-3">
-                      <div className="text-xs opacity-70">USD</div>
-                      <div className="mt-1 text-lg font-semibold">{fmtUSD(cashLive?.usd ?? 0, 2)}</div>
-                    </div>
-                  </div>
+                  </>
+                ) : (
                   <div className="mt-2 text-xs opacity-70">
-                    Arranque: <b>{fmtARS(opening.ars_open, 2)}</b> / <b>{fmtUSD(opening.usd_open, 2)}</b> •
-                    Fees: <b>{fmtARS(cashLive?.fees ?? 0, 2)}</b>
+                    Falta iniciar el día.{" "}
+                    <Link href={`/inicio-dia?date=${encodeURIComponent(businessDate)}`} className="underline">
+                      Ir a Inicio del día
+                    </Link>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="mt-4 space-y-4">
                 <div className="rounded-xl border border-white/10 p-4">
@@ -758,7 +641,7 @@ export default function OperacionesPage() {
 
                   <button
                     onClick={createOperation}
-                    disabled={savingOp || dayClosed || needsBusinessSetup || !hasOpening}
+                    disabled={savingOp || dayClosed || !hasOpening}
                     className="mt-4 w-full rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50"
                   >
                     {savingOp ? "Guardando..." : "Guardar operación"}
