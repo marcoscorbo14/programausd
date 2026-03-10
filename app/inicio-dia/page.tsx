@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { AppPageHeader } from "@/app/components/app-page-header";
 import { canManageTeam, getProfileWithRole, type AppRole } from "@/lib/security";
@@ -33,13 +33,8 @@ function fmtUSD(n: number) {
 }
 
 export default function InicioDiaPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const dateParam = searchParams.get("date");
-
-  const [businessDate, setBusinessDate] = useState<string>(
-    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayLocalYYYYMMDD()
-  );
+  const [businessDate, setBusinessDate] = useState<string>(todayLocalYYYYMMDD());
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -130,6 +125,14 @@ export default function InicioDiaPage() {
     setOpening(openingRow ?? null);
     setLoading(false);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get("date");
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setBusinessDate(dateParam);
+    }
+  }, []);
 
   useEffect(() => {
     void loadAll();
